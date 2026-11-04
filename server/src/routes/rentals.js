@@ -1,0 +1,225 @@
+import { Router } from 'express';
+import Rental from '../models/Rental.js';
+import Car from '../models/Car.js';
+import Payment from '../models/Payment.js';
+import Review from '../models/Review.js';
+import User from '../models/User.js';
+import { auth, requireRole, requireVerified } from '../middleware/auth.js';
+import { wrap, httpError } from '../middleware/error.js';
+import { unavailableReason, countDays } from '../services/availability.js';
+import { createPaymentIntent, holdPayment, paymentMode, refundPaymentRef } from '../services/payment.js';
+import { notify } from '../services/notify.js';
+import {
+  rejectRental, cancelByRenter, cancellationTerms, transferToCompany, refundFull,
+} from '../services/rentalActions.js';
+import { rules } from '../config.js';
+
+const router = Router();
+router.use(auth);
+
+const populateAll = (q) => q
+  .populate('car', 'brand model year photos city pickupLocation transmission fuel seats dailyPrice')
+  .populate('company', 'name phone ratingAvg ratingCount company')
+  .populate('renter', 'name phone ratingAvg ratingCount status createdAt city');
+
+async function loadRental(req, roles = ['renter', 'company']) {
+  const rental = await Rental.findById(req.params.id);
+  if (!rental) throw httpError(404, 'الحجز مش موجود');
+  const isRenter = String(rental.renter) === String(req.user._id);
+  const isCompany = String(rental.company) === String(req.user._id);
+  if (!((roles.includes('renter') && isRenter) || (roles.includes('company') && isCompany) || req.user.role === 'admin')) {
+    throw httpError(403, 'ما عندك صلاحية');
+  }
+  return rental;
+}
+
+const carLabel = async (rental) => {
+  const c = await Car.findById(rental.car).select('brand model year');
+  return `${c.brand} ${c.model} ${c.year}`;
+};
+
+async function loadBookableCar({ carId, startDate, endDate }) {
+  const car = await Car.findById(carId).populate('company', 'status');
+  if (!car || car.company.status !== 'verified') throw httpError(404, 'السيارة مش موجودة');
+  const start = new Date(startDate); const end = new Date(endDate);
+  const reason = await unavailableReason(car, start, end);
+  if (reason) throw httpError(409, reason);
+  return { car, start, end, days: countDays(start, end) };
+}
+
+// Renter: start the payment (Stripe returns a client secret; sandbox mode needs nothing)
+router.post('/payment-intent', requireRole('renter'), requireVerified, wrap(async (req, res) => {
+  const { car, start, end, days } = await loadBookableCar(req.body);
+  res.json(await createPaymentIntent({ amount: days * car.dailyPrice, renterId: req.user._id, carId: car._id, startDate: start, endDate: end }));
+}));
+
+router.get('/payment-mode', (req, res) => res.json({ mode: paymentMode }));
+
+// Renter: request a rental after paying (amount is held until the company responds)
+router.post('/', requireRole('renter'), requireVerified, wrap(async (req, res) => {
+  const { card, paymentIntentId, acceptTerms } = req.body;
+  if (!acceptTerms) throw httpError(400, 'لازم توافق على شروط الإيجار');
+  const { car, start, end, days } = await loadBookableCar(req.body);
+  const rental = new Rental({
+    code: `RD-${String(new Date().getFullYear()).slice(2)}-${String(Date.now()).slice(-6)}`,
+    renter: req.user._id, company: car.company._id, car: car._id,
+    startDate: start, endDate: end, days, dailyPrice: car.dailyPrice, total: days * car.dailyPrice,
+    respondBy: new Date(Date.now() + rules.responseHours * 3600000),
+  });
+  const payment = await holdPayment({ rental, card, paymentIntentId }); // throws 402 if declined → no rental is sent
+  try {
+    await rental.save();
+  } catch (err) {
+    await refundPaymentRef(payment.gatewayRef, payment.amount);
+    await payment.deleteOne();
+    throw err;
+  }
+  await notify(car.company._id, {
+    type: 'rental', email: true, link: '/company/requests',
+    title: 'طلب إيجار جديد', body: `${req.user.name} · ${car.brand} ${car.model} · ${days} أيام · رد خلال 12 ساعة`,
+  });
+  res.status(201).json({ rental });
+}));
+
+router.get('/mine', wrap(async (req, res) => {
+  const key = req.user.role === 'company' ? 'company' : 'renter';
+  const filter = { [key]: req.user._id };
+  if (req.query.status) filter.status = { $in: String(req.query.status).split(',') };
+  const rentals = await populateAll(Rental.find(filter).sort('-createdAt')).lean();
+  res.json({ rentals });
+}));
+
+router.get('/:id', wrap(async (req, res) => {
+  const rental = await loadRental(req);
+  const [full, payment] = await Promise.all([
+    populateAll(Rental.findById(rental._id)).lean(),
+    Payment.findOne({ rental: rental._id }).lean(),
+  ]);
+  const terms = ['pending', 'confirmed'].includes(full.status) ? cancellationTerms(rental) : null;
+  res.json({ rental: full, payment, cancellation: terms, commissionRate: rules.commissionRate });
+}));
+
+// Company: accept → confirmed; overlapping pending requests are rejected automatically
+router.post('/:id/accept', requireRole('company'), wrap(async (req, res) => {
+  const rental = await loadRental(req, ['company']);
+  if (rental.status !== 'pending') throw httpError(409, 'الطلب مش قيد الانتظار');
+  const car = await Car.findById(rental.car);
+  const reason = await unavailableReason(car, rental.startDate, rental.endDate, rental._id);
+  if (reason) throw httpError(409, reason);
+  rental.status = 'confirmed';
+  rental.acceptedAt = new Date();
+  await rental.save();
+  const overlapping = await Rental.find({
+    _id: { $ne: rental._id }, car: rental.car, status: 'pending',
+    startDate: { $lt: rental.endDate }, endDate: { $gt: rental.startDate },
+  });
+  for (const o of overlapping) await rejectRental(o, { reason: 'السيارة انحجزت بنفس التواريخ' });
+  await notify(rental.renter, {
+    type: 'rental', email: true, link: `/rentals/${rental._id}`,
+    title: 'الشركة وافقت على حجزك', body: `${car.brand} ${car.model} · بتقدر تلغي مجاناً خلال ${rules.freeCancelHoursAfterAccept} ساعات.`,
+  });
+  res.json({ rental, autoRejected: overlapping.length });
+}));
+
+router.post('/:id/reject', requireRole('company'), wrap(async (req, res) => {
+  const rental = await loadRental(req, ['company']);
+  if (rental.status !== 'pending') throw httpError(409, 'الطلب مش قيد الانتظار');
+  await rejectRental(rental, { reason: req.body.reason });
+  res.json({ rental });
+}));
+
+router.post('/:id/cancel', wrap(async (req, res) => {
+  const rental = await loadRental(req);
+  if (req.user.role === 'renter') {
+    if (!['pending', 'confirmed'].includes(rental.status)) throw httpError(409, 'ما بتقدر تلغي هالحجز');
+    if (rental.status === 'confirmed' && rental.startDate <= new Date()) throw httpError(409, 'الحجز بلّش');
+    const terms = await cancelByRenter(rental);
+    return res.json({ rental, terms });
+  }
+  // Company cancels a confirmed rental → full refund to the renter
+  if (rental.status !== 'confirmed') throw httpError(409, 'بتقدر تلغي حجز مؤكد بس');
+  rental.status = 'cancelled';
+  rental.cancelledBy = 'company';
+  rental.cancelledAt = new Date();
+  await rental.save();
+  await refundFull(rental._id);
+  await notify(rental.renter, {
+    type: 'rental', email: true, link: `/rentals/${rental._id}`,
+    title: 'الشركة لغت حجزك', body: `${await carLabel(rental)} · رجعلك المبلغ كامل (₪${rental.total}).`,
+  });
+  res.json({ rental });
+}));
+
+// Company confirms the renter picked up the car → payment transferred minus commission
+router.post('/:id/pickup', requireRole('company'), wrap(async (req, res) => {
+  const rental = await loadRental(req, ['company']);
+  if (rental.status !== 'confirmed') throw httpError(409, 'الحجز مش مؤكد');
+  if (Date.now() < rental.startDate.getTime() - 2 * 3600000) throw httpError(409, 'لسا ما إجا موعد الاستلام');
+  rental.status = 'active';
+  rental.pickupConfirmedAt = new Date();
+  await rental.save();
+  const payment = await transferToCompany(rental._id, 1);
+  await notify(rental.renter, { type: 'rental', link: `/rentals/${rental._id}`, title: 'استلمت السيارة', body: `رحلة سعيدة! موعد التسليم ${rental.endDate.toLocaleString('ar')}` });
+  res.json({ rental, payment });
+}));
+
+router.post('/:id/no-show', requireRole('company'), wrap(async (req, res) => {
+  const rental = await loadRental(req, ['company']);
+  if (rental.status !== 'confirmed') throw httpError(409, 'الحجز مش مؤكد');
+  if (Date.now() < rental.startDate.getTime() + rules.noShowGraceHours * 3600000) {
+    throw httpError(409, `بتقدر تسجّل عدم حضور بعد ${rules.noShowGraceHours} ساعات من الموعد`);
+  }
+  rental.status = 'no_show';
+  await rental.save();
+  const payment = await transferToCompany(rental._id, rules.lateCancelChargeRate);
+  await notify(rental.renter, {
+    type: 'rental', email: true, link: `/rentals/${rental._id}`,
+    title: 'انسجّل عدم حضور على حجزك', body: `انخصم ${rules.lateCancelChargeRate * 100}% ورجعلك ₪${payment?.refundAmount ?? 0}.`,
+  });
+  res.json({ rental, payment });
+}));
+
+router.post('/:id/return', requireRole('company'), wrap(async (req, res) => {
+  const rental = await loadRental(req, ['company']);
+  if (rental.status !== 'active') throw httpError(409, 'الحجز مش جاري');
+  rental.status = 'completed';
+  rental.returnConfirmedAt = new Date();
+  await rental.save();
+  await notify(rental.renter, { type: 'rental', link: `/rentals/${rental._id}`, title: 'خلصت رحلتك', body: 'قيّم الشركة والسيارة عشان تساعد باقي المستأجرين.' });
+  res.json({ rental });
+}));
+
+async function updateRating(model, id, filter) {
+  const [agg] = await Review.aggregate([{ $match: filter }, { $group: { _id: null, avg: { $avg: '$stars' }, n: { $sum: 1 } } }]);
+  await model.updateOne({ _id: id }, { ratingAvg: Math.round((agg?.avg || 0) * 10) / 10, ratingCount: agg?.n || 0 });
+}
+
+// Two-way ratings after the rental is completed (once per side)
+router.post('/:id/review', wrap(async (req, res) => {
+  const rental = await loadRental(req);
+  if (rental.status !== 'completed') throw httpError(409, 'بتقدر تقيّم بعد ما تخلص الرحلة');
+  const valid = (n) => Number.isInteger(Number(n)) && n >= 1 && n <= 5;
+  if (req.user.role === 'renter') {
+    if (rental.renterReviewed) throw httpError(409, 'قيّمت هالرحلة قبل');
+    const { companyStars, carStars, comment } = req.body;
+    if (!valid(companyStars) || !valid(carStars)) throw httpError(400, 'اختار النجوم أول');
+    await Review.create([
+      { rental: rental._id, author: req.user._id, targetType: 'company', targetUser: rental.company, stars: companyStars, comment },
+      { rental: rental._id, author: req.user._id, targetType: 'car', car: rental.car, stars: carStars, comment },
+    ]);
+    rental.renterReviewed = true;
+    await updateRating(User, rental.company, { targetType: 'company', targetUser: rental.company });
+    await updateRating(Car, rental.car, { targetType: 'car', car: rental.car });
+  } else {
+    if (rental.companyReviewed) throw httpError(409, 'قيّمت هالزبون قبل');
+    const { stars, comment } = req.body;
+    if (!valid(stars)) throw httpError(400, 'اختار النجوم أول');
+    await Review.create({ rental: rental._id, author: req.user._id, targetType: 'renter', targetUser: rental.renter, stars, comment });
+    rental.companyReviewed = true;
+    await updateRating(User, rental.renter, { targetType: 'renter', targetUser: rental.renter });
+  }
+  await rental.save();
+  res.json({ rental });
+}));
+
+export default router;

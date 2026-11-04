@@ -1,0 +1,12 @@
+{
+  "_note": "Placeholder coefficients. Replace by running train_price_model.py on the real dataset.",
+  "intercept": -9500,
+  "minPrice": 80,
+  "numeric": { "year": 4.75, "seats": 12 },
+  "categorical": {
+    "brand": { "mercedes": 180, "bmw": 170, "toyota": 25, "ford": 20, "hyundai": 10, "kia": 10, "nissan": 10, "skoda": 5, "volkswagen": 15 },
+    "fuel": { "petrol": 0, "diesel": 15, "hybrid": 30, "electric": 45 },
+    "transmission": { "automatic": 20, "manual": 0 },
+    "city": { "ramallah": 15, "jerusalem": 25, "bethlehem": 5, "nablus": 0, "hebron": 0, "jenin": -10, "tulkarm": -10, "qalqilya": -10, "jericho": 0, "salfit": -10, "tubas": -10 }
+  }
+}

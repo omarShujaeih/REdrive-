@@ -1,0 +1,167 @@
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { api } from '../../api.js';
+import { useAuth } from '../../auth.jsx';
+import Calendar from '../../components/Calendar.jsx';
+import { PageTitle } from '../../components/Layout.jsx';
+import { ErrorBox, Field, Loading, StatusBadge } from '../../components/ui.jsx';
+import { bookedDays } from '../CarDetails.jsx';
+import { BRANDS, CAR_STATUS, CITIES, FEATURES, FUEL, TRANSMISSION, isoDay, money, fmtDate } from '../../labels.js';
+
+const EMPTY = {
+  brand: '', model: '', year: '2023', transmission: 'automatic', fuel: 'petrol', seats: '5', city: 'ramallah',
+  pickupAddress: '', dailyPrice: '', plateNumber: '', availableFrom: isoDay(Date.now()), availableTo: isoDay(Date.now() + 180 * 864e5), features: [],
+};
+
+export default function CarForm() {
+  const { id } = useParams();
+  const isNew = !id;
+  const navigate = useNavigate();
+  const { user, setToast } = useAuth();
+  const [f, setF] = useState({ ...EMPTY, city: user.city || 'ramallah', pickupAddress: user.company?.address || '' });
+  const [blocked, setBlocked] = useState([]);
+  const [bookings, setBookings] = useState([]);
+  const [car, setCar] = useState(null);
+  const [files, setFiles] = useState({ photos: [], registration: null, insurance: null });
+  const [ai, setAi] = useState(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(!isNew);
+
+  useEffect(() => {
+    if (isNew) return;
+    api(`/cars/${id}`).then(({ car: c, bookings: b }) => {
+      setCar(c); setBookings(b);
+      setF({
+        brand: c.brand, model: c.model, year: String(c.year), transmission: c.transmission, fuel: c.fuel, seats: String(c.seats), city: c.city,
+        pickupAddress: c.pickupLocation?.address || '', dailyPrice: String(c.dailyPrice), plateNumber: c.plateNumber,
+        availableFrom: isoDay(c.availableFrom), availableTo: isoDay(c.availableTo), features: c.features,
+      });
+      setBlocked(c.blockedDates.map(isoDay));
+    }).catch((e) => setError(e.message)).finally(() => setLoading(false));
+  }, [id, isNew]);
+
+  if (loading) return <Loading />;
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const booked = bookedDays(bookings);
+  const pending = bookedDays(bookings, ['pending']);
+
+  const suggest = async () => {
+    setError('');
+    try { setAi(await api('/cars/estimate-price', { method: 'POST', body: { ...f, year: Number(f.year), seats: Number(f.seats) } })); } catch (e) { setError(e.message); }
+  };
+  const toggleDay = (k) => {
+    if (booked.has(k) || k < f.availableFrom || k > f.availableTo) return;
+    setBlocked((b) => (b.includes(k) ? b.filter((x) => x !== k) : [...b, k]));
+  };
+
+  const submit = async (e) => {
+    e.preventDefault(); setError('');
+    const missing = [];
+    if (!f.brand) missing.push('الماركة');
+    if (!f.model) missing.push('الموديل');
+    if (!f.dailyPrice) missing.push('السعر اليومي');
+    if (!f.plateNumber) missing.push('رقم اللوحة');
+    if (isNew && !files.photos.length) missing.push('الصور');
+    if (isNew && !files.registration) missing.push('رخصة المركبة');
+    if (isNew && !files.insurance) missing.push('التأمين');
+    if (missing.length) return setError(`في معلومات ناقصة: ${missing.join('، ')}`);
+    const fd = new FormData();
+    Object.entries(f).forEach(([k, v]) => fd.append(k, k === 'features' ? JSON.stringify(v) : v));
+    if (ai) fd.append('aiSuggestedPrice', ai.price);
+    fd.append('blockedDates', JSON.stringify(blocked));
+    files.photos.forEach((p) => fd.append('photos', p));
+    if (files.registration) fd.append('registration', files.registration);
+    if (files.insurance) fd.append('insurance', files.insurance);
+    setBusy(true);
+    try {
+      const r = await api(isNew ? '/cars' : `/cars/${id}`, { method: isNew ? 'POST' : 'PATCH', form: fd });
+      setToast(r.car.status === 'pending' ? 'انبعتت السيارة لمراجعة الإدارة' : 'انحفظت التغييرات');
+      navigate('/company/cars');
+    } catch (err) { setError(err.message); } finally { setBusy(false); }
+  };
+
+  return (
+    <form onSubmit={submit} noValidate>
+      <PageTitle title={isNew ? 'أضف سيارة' : `تعديل ${f.brand} ${f.model}`} sub="السيارة بتنعرض بالبحث بعد ما الإدارة تراجع معلوماتها ووثائقها.">
+        {car && <StatusBadge map={CAR_STATUS} value={car.status} />}
+      </PageTitle>
+      <div className="col" style={{ gap: 16, maxWidth: 900 }}>
+        <ErrorBox error={error} />
+        <section className="card col">
+          <h3>معلومات السيارة</h3>
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+            <Field label="الماركة"><select className="input" value={f.brand} onChange={set('brand')}><option value="">اختار</option>{BRANDS.map((b) => <option key={b}>{b}</option>)}</select></Field>
+            <Field label="الموديل"><input className="input" value={f.model} onChange={set('model')} placeholder="مثلاً Tucson" /></Field>
+            <Field label="سنة الصنع"><select className="input" value={f.year} onChange={set('year')}>{Array.from({ length: 12 }, (_, i) => 2026 - i).map((y) => <option key={y}>{y}</option>)}</select></Field>
+            <Field label="ناقل الحركة"><select className="input" value={f.transmission} onChange={set('transmission')}>{Object.entries(TRANSMISSION).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+            <Field label="الوقود"><select className="input" value={f.fuel} onChange={set('fuel')}>{Object.entries(FUEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+            <Field label="عدد المقاعد"><select className="input" value={f.seats} onChange={set('seats')}>{['2', '4', '5', '7', '8'].map((s) => <option key={s}>{s}</option>)}</select></Field>
+            <Field label="المدينة"><select className="input" value={f.city} onChange={set('city')}>{Object.entries(CITIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+            <Field label="مكان الاستلام"><input className="input" value={f.pickupAddress} onChange={set('pickupAddress')} /></Field>
+            <Field label="رقم اللوحة" hint="بتشوفه إنت والإدارة بس."><input className="input ltr" value={f.plateNumber} onChange={set('plateNumber')} /></Field>
+          </div>
+        </section>
+
+        <section className="card col">
+          <h3>السعر اليومي</h3>
+          <p className="muted small">الذكاء الاصطناعي بيقترحلك سعر حسب الماركة والموديل والسنة والوقود وناقل الحركة والمقاعد والمدينة.</p>
+          <div className="row">
+            <button type="button" className="btn secondary" onClick={suggest} disabled={!f.brand}>✦ اقترح سعر</button>
+            {ai && (
+              <div className="card soft row" style={{ padding: 12 }}>
+                <div className="col" style={{ gap: 0 }}><span className="muted small">السعر المقترح</span><b style={{ fontSize: 22 }}>{money(ai.price)} <span className="muted small">باليوم</span></b><span className="muted small">سيارات شبهها بـ{CITIES[f.city]}: {money(ai.low)}–{money(ai.high)}</span></div>
+                <button type="button" className="btn sm" onClick={() => setF({ ...f, dailyPrice: String(ai.price) })}>استخدم هالسعر</button>
+              </div>
+            )}
+          </div>
+          <Field label="سعرك باليوم (₪)" hint="بتقدر تقبل السعر المقترح أو تكتب سعرك."><input className="input" type="number" min="1" value={f.dailyPrice} onChange={set('dailyPrice')} style={{ maxWidth: 200 }} /></Field>
+        </section>
+
+        <section className="card col">
+          <h3>فترة التوفر والتقويم</h3>
+          <p className="muted small">حدد من أي تاريخ لأي تاريخ السيارة متاحة. الأيام اللي بتنحجز بتنسجّل لحالها، وبتقدر تضغط على أي يوم عشان تسكّره للصيانة أو للاستعمال الخاص.</p>
+          <div className="row">
+            <Field label="متاحة من"><input className="input" type="date" value={f.availableFrom} onChange={set('availableFrom')} /></Field>
+            <Field label="لـ"><input className="input" type="date" value={f.availableTo} min={f.availableFrom} onChange={set('availableTo')} /></Field>
+          </div>
+          <div style={{ maxWidth: 420 }}>
+            <Calendar
+              dayClass={(k) => (booked.has(k) ? 'booked' : pending.has(k) ? 'pending' : blocked.includes(k) ? 'blocked' : '')}
+              disabled={(k) => k < f.availableFrom || k > f.availableTo}
+              onPick={toggleDay}
+            />
+          </div>
+          <div className="legend"><span><i style={{ background: 'var(--red-soft)' }} />محجوزة</span><span><i style={{ background: 'var(--amber-soft)' }} />طلب بيستنى ردّك</span><span><i style={{ background: '#E7EAF0' }} />مسكّرة من عندك</span></div>
+          {bookings.length > 0 && (
+            <div className="col" style={{ gap: 6 }}>
+              <b className="small">حجوزات هالسيارة</b>
+              {bookings.map((b) => <Link key={b._id} to={`/company/rentals/${b._id}`} className="small">{fmtDate(b.startDate)} ← {fmtDate(b.endDate)} · {b.renter?.name} · <span className="ltr">{b.code}</span></Link>)}
+            </div>
+          )}
+        </section>
+
+        <section className="card col">
+          <h3>المزايا</h3>
+          <div className="chips">
+            {FEATURES.map((x) => <button type="button" key={x} className={`chip ${f.features.includes(x) ? 'on' : ''}`} onClick={() => setF({ ...f, features: f.features.includes(x) ? f.features.filter((y) => y !== x) : [...f.features, x] })}>{x}</button>)}
+          </div>
+        </section>
+
+        <section className="card col">
+          <h3>الصور والوثائق</h3>
+          <p className="muted small">الوثائق بتشوفها إنت والإدارة بس، وما بتظهر للمستأجرين. {!isNew && 'تغيير الماركة أو الموديل أو السنة أو اللوحة أو الوثائق بيرجّع السيارة لمراجعة الإدارة.'}</p>
+          {car?.photos?.length > 0 && <div className="row">{car.photos.map((p) => <img key={p} src={p} alt="" style={{ width: 96, height: 64, objectFit: 'cover', borderRadius: 8 }} />)}</div>}
+          <Field label={isNew ? 'صور السيارة' : 'أضف صور'} hint="لحد 12 صورة"><input className="input" style={{ paddingTop: 8 }} type="file" accept="image/*" multiple onChange={(e) => setFiles({ ...files, photos: [...e.target.files] })} /></Field>
+          <Field label="رخصة المركبة"><input className="input" style={{ paddingTop: 8 }} type="file" accept="image/*,application/pdf" onChange={(e) => setFiles({ ...files, registration: e.target.files[0] })} /></Field>
+          <Field label="التأمين الشامل"><input className="input" style={{ paddingTop: 8 }} type="file" accept="image/*,application/pdf" onChange={(e) => setFiles({ ...files, insurance: e.target.files[0] })} /></Field>
+        </section>
+
+        <div className="row">
+          <button className="btn" disabled={busy}>{isNew ? 'ابعت السيارة للمراجعة' : 'احفظ التغييرات'}</button>
+          <Link className="btn secondary" to="/company/cars">رجوع لسياراتي</Link>
+        </div>
+      </div>
+    </form>
+  );
+}
