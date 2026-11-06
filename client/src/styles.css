@@ -425,7 +425,6 @@ table.table { width: 100%; border-collapse: collapse; background: #fff; }
 .auth-alt { display: flex; flex-direction: column; gap: 6px; padding-top: 20px; border-top: 1px solid var(--line-soft); color: var(--muted); }
 .auth-alt a { font-weight: 600; }
 .auth-visual { position: relative; overflow: hidden; display: flex; flex-direction: column; min-height: clamp(480px, 46vw, 640px); border-radius: var(--r-xl); background: radial-gradient(120% 90% at 30% 20%, #FFFFFF 0%, #F3F4F6 50%, #E6E8EC 100%); border: 1px solid var(--line-soft); animation: rd-fade .6s var(--ease) .1s backwards; }
-.auth-visual img { position: absolute; inset-inline: 0; bottom: 0; width: 100%; height: auto; -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 28%); mask-image: linear-gradient(to bottom, transparent 0%, #000 28%); }
 .auth-visual-copy { position: relative; z-index: 1; margin: 12px; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
 .auth-visual-copy h2 { font-size: clamp(24px, 2.4vw, 32px); letter-spacing: -.01em; }
 .auth-visual-copy p { color: var(--muted); max-width: 46ch; }
@@ -436,7 +435,6 @@ table.table { width: 100%; border-collapse: collapse; background: #fff; }
 @media (max-width: 900px) {
   .auth-main { grid-template-columns: 1fr; }
   .auth-visual { min-height: 0; aspect-ratio: auto; }
-  .auth-visual img { position: relative; margin-top: -40px; }
 }
 
 /* Hero stage details: outlined wordmark behind the cars, studio floor light */
@@ -488,3 +486,22 @@ table.table { width: 100%; border-collapse: collapse; background: #fff; }
 .site-footer .logo b, .site-footer .logo:hover { color: #fff; }
 .city .city-ic { flex: 0 0 34px; }
 .site-footer .logo b span { background: linear-gradient(90deg, #8FB4FF, #4C8DFF); -webkit-background-clip: text; background-clip: text; }
+
+/* Login visual on the logo navy: one real car with lit LEDs, like the home hero */
+.auth-visual.navy { background: radial-gradient(120% 110% at 80% 0%, #2B4580 0%, #15244D 45%, #0A1430 100%); border: 0; color: #fff; isolation: isolate; }
+.auth-visual.navy::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background-image: linear-gradient(rgba(255, 255, 255, .045) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .045) 1px, transparent 1px); background-size: 44px 44px; -webkit-mask-image: radial-gradient(80% 70% at 50% 30%, #000, transparent); mask-image: radial-gradient(80% 70% at 50% 30%, #000, transparent); }
+.auth-visual.navy .auth-visual-copy h2 { color: #fff; }
+.auth-visual.navy .auth-visual-copy p { color: rgba(255, 255, 255, .7); }
+.auth-visual.navy .hero-proof b { color: #fff; }
+.auth-visual.navy .proof-icon { background: rgba(47, 107, 255, .16); box-shadow: inset 0 0 0 1px rgba(143, 180, 255, .3); }
+.auth-visual.navy .proof-icon svg { stroke: #A9C4FF; }
+.auth-visual.navy .eyebrow { background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .14); color: #fff; box-shadow: none; }
+.auth-floor { position: absolute; left: -10%; right: -10%; bottom: 0; height: 34%; pointer-events: none; background: radial-gradient(50% 55% at 55% 60%, rgba(120, 160, 255, .28), rgba(120, 160, 255, 0) 70%); }
+.auth-floor::before { content: ''; position: absolute; left: 8%; right: 8%; top: 52%; height: 1px; background: linear-gradient(90deg, transparent, rgba(47, 107, 255, .9), transparent); box-shadow: 0 0 18px 2px rgba(47, 107, 255, .5); }
+.auth-car { position: absolute; z-index: 1; right: 3%; bottom: 5%; width: 88%; opacity: 0; animation: car-in 1.1s var(--ease) .2s forwards; }
+.auth-car .fleet-photo { filter: drop-shadow(0 30px 30px rgba(0, 0, 0, .45)); }
+.auth-car .fleet-reflection { opacity: .22; }
+@media (max-width: 900px) {
+  .auth-visual.navy { min-height: 0; padding-bottom: 66%; }
+  .auth-car { width: 92%; right: 4%; bottom: 6%; }
+}

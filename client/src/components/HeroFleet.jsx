@@ -29,7 +29,7 @@ const CARS = [
   },
 ];
 
-function Leds({ car }) {
+export function Leds({ car }) {
   const id = `led-${car.key}`;
   return (
     <svg className="leds" viewBox={`0 0 ${car.w} ${car.h}`} preserveAspectRatio="none" aria-hidden="true">

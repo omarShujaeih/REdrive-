@@ -3,7 +3,17 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { ErrorBox, Field, Icon, Logo } from '../components/ui.jsx';
-import loginPhoto from '../assets/login-suv.webp';
+import { Leds } from '../components/HeroFleet.jsx';
+import loginCar from '../assets/hero/login-sportage.webp';
+
+// Real photo of a Kia Sportage GT-line (assets/hero/CREDITS.md) with its LEDs traced in the photo's pixel space,
+// lit and blinking the same way as the cars in the home hero.
+const LOGIN_CAR = {
+  key: 'login', w: 3624, h: 2304, width: 27,
+  drl: ['M1691 1035 L1903 1126 L2079 1185 L2209 1244 L2315 1326 L2397 1421 L2374 1491 L2279 1609 L2162 1703 L2091 1726', 'M2039 2113 L2194 2013'],
+  bars: ['M1832 1303 L2244 1291', 'M1821 1338 L2256 1326', 'M1832 1374 L2256 1368'],
+  lamps: [{ cx: 2056, cy: 1444, rx: 230, ry: 120 }, { cx: 2117, cy: 2067, rx: 95, ry: 60 }, { cx: 3505, cy: 1060, rx: 30, ry: 95, far: true }],
+};
 
 export function homeFor(user) {
   if (user.role === 'admin') return '/admin';
@@ -100,7 +110,7 @@ export default function Login() {
           </div>
         </section>
 
-        <aside className="auth-visual" aria-label="عن Redrive">
+        <aside className="auth-visual navy" aria-label="عن Redrive">
           <div className="auth-visual-copy">
             <span className="eyebrow"><i aria-hidden="true" />Redrive</span>
             <h2>المنصة الفلسطينية لتأجير السيارات</h2>
@@ -111,7 +121,12 @@ export default function Login() {
               ))}
             </ul>
           </div>
-          <img src={loginPhoto} alt="سيارة SUV بيضاء واقفة على طرف الطريق" />
+          <span className="auth-floor" aria-hidden="true" />
+          <div className="auth-car" style={{ '--d': '0.5s' }}>
+            <img className="fleet-reflection" src={loginCar} alt="" aria-hidden="true" />
+            <img className="fleet-photo" src={loginCar} alt="كيا سبورتاج بيضاء وأضويتها شغّالة" width={LOGIN_CAR.w} height={LOGIN_CAR.h} />
+            <Leds car={LOGIN_CAR} />
+          </div>
         </aside>
       </main>
 
