@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth.jsx';
 import { Icon, Logo, Loading, useLoad } from './ui.jsx';
@@ -9,37 +10,67 @@ function Page() {
   return <div className="page" key={pathname}><Outlet /></div>;
 }
 
-export function PublicLayout() {
+// Site header: actions on the right, links in the middle, logo on the left.
+// Translucent over the page, gains a hairline once the page scrolls; links fold into a menu on phones.
+function SiteHeader() {
   const { user, unread, logout } = useAuth();
   const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const home = user?.role === 'company' ? '/company' : user?.role === 'admin' ? '/admin' : null;
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const links = [
+    { to: '/', label: 'الرئيسية', end: true },
+    { to: '/search', label: 'تصفّح السيارات' },
+    { to: '/assistant', label: 'المساعد الذكي' },
+    ...(user?.role === 'renter' ? [{ to: '/rentals', label: 'حجوزاتي' }] : []),
+    ...(home ? [{ to: home, label: 'لوحة التحكم' }] : []),
+  ];
+
+  return (
+    <header className={`site-header ${scrolled ? 'scrolled' : ''}`}>
+      <div className="container bar">
+        <div className="actions">
+          <button type="button" className="nav-link icon menu-btn" aria-expanded={open} aria-controls="site-menu" aria-label={open ? 'سكّر القائمة' : 'افتح القائمة'} onClick={() => setOpen(!open)}>
+            <Icon name={open ? 'close' : 'menu'} size={22} />
+          </button>
+          {!user && (
+            <>
+              <Link to="/login" className="btn sm">تسجيل الدخول</Link>
+              <Link to="/register?role=renter" className="text-link hide-sm">إنشاء حساب</Link>
+            </>
+          )}
+          {user && (
+            <>
+              <Link to="/profile" className="avatar" aria-label="حسابي">{user.name[0]}</Link>
+              <Link to="/notifications" className="nav-link icon" aria-label={unread > 0 ? `الإشعارات، ${unread} جداد` : 'الإشعارات'}>
+                <Icon name="bell" size={22} />{unread > 0 && <span className="dot" aria-hidden="true">{unread}</span>}
+              </Link>
+              {user.role === 'renter' && <Link to="/favorites" className="nav-link icon" aria-label="المفضلة"><Icon name="heart" /></Link>}
+              <button type="button" className="text-link hide-sm" onClick={() => { logout(); navigate('/'); }}>خروج</button>
+            </>
+          )}
+        </div>
+        <nav id="site-menu" className={`main-nav ${open ? 'open' : ''}`} aria-label="القائمة الرئيسية">
+          {links.map((l) => <NavLink key={l.to} to={l.to} end={l.end} onClick={() => setOpen(false)}>{l.label}</NavLink>)}
+        </nav>
+        <Logo />
+      </div>
+    </header>
+  );
+}
+
+export function PublicLayout() {
   return (
     <>
-      <header className="header">
-        <div className="container">
-          <Logo />
-          <nav className="row" aria-label="القائمة الرئيسية" style={{ gap: 8 }}>
-            <Link to="/assistant" className="nav-link"><Icon name="sparkle" color="var(--blue)" />اسأل Redrive</Link>
-            {!user && <Link to="/login" className="nav-link">تسجيل الدخول</Link>}
-            {user && home && <Link to={home} className="nav-link">لوحة التحكم</Link>}
-            {user?.role === 'renter' && (
-              <>
-                <Link to="/rentals" className="nav-link">حجوزاتي</Link>
-                <Link to="/favorites" className="nav-link icon" aria-label="المفضلة"><Icon name="heart" /></Link>
-              </>
-            )}
-            {user && (
-              <>
-                <Link to="/notifications" className="nav-link icon" aria-label={unread > 0 ? `الإشعارات، ${unread} جداد` : 'الإشعارات'}>
-                  <Icon name="bell" size={22} />{unread > 0 && <span className="dot" aria-hidden="true">{unread}</span>}
-                </Link>
-                <Link to="/profile" className="avatar" aria-label="حسابي">{user.name[0]}</Link>
-                <button type="button" className="btn ghost sm" onClick={() => { logout(); navigate('/'); }}>خروج</button>
-              </>
-            )}
-          </nav>
-        </div>
-      </header>
+      <SiteHeader />
       <Page />
       <footer className="footer">
         <div className="container row between">

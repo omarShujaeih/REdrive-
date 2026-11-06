@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
-import { CarCard, Loading, useLoad } from '../components/ui.jsx';
+import { CarCard, Icon, Loading, useLoad } from '../components/ui.jsx';
+import HeroFleet from '../components/HeroFleet.jsx';
 import { CITIES, isoDay } from '../labels.js';
 
 export default function Home() {
@@ -20,26 +21,42 @@ export default function Home() {
 
   return (
     <main className="stack-lg">
-      <section className="container">
-        <div style={{ borderRadius: 28, background: 'var(--hero)', padding: 'clamp(24px, 5vw, 56px)' }} className="col">
-          <h1 style={{ fontSize: 'clamp(30px, 4vw, 46px)' }}>المنصة الفلسطينية لتأجير السيارات</h1>
-          <p className="muted" style={{ fontSize: 17, maxWidth: '46ch' }}>سيارات من شركات مرخّصة وموثّقة. اختار السيارة والتواريخ اللي بتناسبك، وادفع أونلاين.</p>
-          <div className="row" style={{ gap: '6px 18px' }}>
-            {['شركات مرخّصة', 'دفع آمن أونلاين', 'تقييمات من الطرفين'].map((t) => <span key={t} className="bold"><span style={{ color: 'var(--blue)' }}>✓</span> {t}</span>)}
-          </div>
-          <form onSubmit={search} className="card row" style={{ marginTop: 12, alignItems: 'flex-end' }}>
-            <div className="field grow" style={{ minWidth: 180 }}>
-              <label htmlFor="city">وين؟</label>
-              <select id="city" className="input" value={city} onChange={(e) => setCity(e.target.value)}>
-                <option value="near">قريب مني (الخريطة)</option>
-                {Object.entries(CITIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
+      <section className="hero" aria-labelledby="hero-title">
+        <div className="container hero-grid">
+          <div className="hero-copy">
+            <span className="eyebrow"><i aria-hidden="true" />المنصة الفلسطينية لتأجير السيارات</span>
+            <h1 id="hero-title" className="hero-title">استأجر سيارتك<br /><span className="nowrap">من شركات <span className="accent">موثوقة</span></span></h1>
+            <p className="hero-lead">سيارات من شركات مرخّصة وموثّقة بكل فلسطين. اختار السيارة والتواريخ اللي بتناسبك، وادفع أونلاين بأمان.</p>
+            <div className="row hero-cta">
+              <Link to="/search" className="btn lg">تصفّح السيارات</Link>
+              <a href="#how" className="btn secondary lg">كيف بتشتغل</a>
             </div>
-            <div className="field"><label htmlFor="s">الاستلام</label><input id="s" type="date" className="input" value={start} min={isoDay(Date.now())} onChange={(e) => setStart(e.target.value)} /></div>
-            <div className="field"><label htmlFor="e">التسليم</label><input id="e" type="date" className="input" value={end} min={start} onChange={(e) => setEnd(e.target.value)} /></div>
-            <button className="btn" type="submit">ابحث</button>
-          </form>
+            <ul className="hero-proof">
+              {[['shield', 'شركات مرخّصة', 'موثّقة من الإدارة'], ['card', 'دفع آمن', 'أونلاين وبتسترجع'], ['star', 'تقييمات', 'من الطرفين']].map(([icon, t, s]) => (
+                <li key={t}><span className="proof-icon"><Icon name={icon} size={22} color="var(--blue)" /></span><span><b>{t}</b><small>{s}</small></span></li>
+              ))}
+            </ul>
+          </div>
+          <div className="hero-stage">
+            <HeroFleet />
+            <p className="photo-credit">صور: Alexander Migl و Alexander-93 · CC BY-SA 4.0</p>
+          </div>
         </div>
+      </section>
+
+      <section className="container search-dock" aria-label="ابحث عن سيارة">
+        <form onSubmit={search} className="search-card">
+          <div className="field grow">
+            <label htmlFor="city"><Icon name="pin" size={18} color="var(--blue)" />وين؟</label>
+            <select id="city" className="input" value={city} onChange={(e) => setCity(e.target.value)}>
+              <option value="near">قريب مني (الخريطة)</option>
+              {Object.entries(CITIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </div>
+          <div className="field"><label htmlFor="s"><Icon name="calendar" size={18} color="var(--blue)" />الاستلام</label><input id="s" type="date" className="input" value={start} min={isoDay(Date.now())} onChange={(e) => setStart(e.target.value)} /></div>
+          <div className="field"><label htmlFor="e"><Icon name="calendar" size={18} color="var(--blue)" />التسليم</label><input id="e" type="date" className="input" value={end} min={start} onChange={(e) => setEnd(e.target.value)} /></div>
+          <button className="btn lg" type="submit"><Icon name="search" />ابحث</button>
+        </form>
       </section>
 
       {[{ title: 'سيارات في رام الله', q: suv, link: '/search?city=ramallah' }, { title: 'سيارات اقتصادية في نابلس', q: eco, link: '/search?city=nablus&sort=price' }].map((s) => (
@@ -51,7 +68,7 @@ export default function Home() {
         </section>
       ))}
 
-      <section className="container">
+      <section className="container" id="how" style={{ scrollMarginTop: 96 }}>
         <div className="card soft col">
           <h2>كيف بتستأجر من Redrive</h2>
           <p className="muted">لازم يكون حسابك موثّق بالهوية ورخصة السواقة قبل أول حجز.</p>
