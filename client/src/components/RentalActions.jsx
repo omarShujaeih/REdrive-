@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { ErrorBox, Field, Modal, StarInput } from './ui.jsx';
-import { HOURS, carName, countDays, daysWord, extraDaysText, fmtDateTime, isoDay, money } from '../labels.js';
+import { carName, countDays, dayName, daysWord, extraDaysText, fmtDateTime, isoDay, money, slotsForDay } from '../labels.js';
 
 // Sandbox card fields shared by the extension and late-fee payments.
 function useCard() {
@@ -42,8 +42,10 @@ export function ExtensionModal({ rental, minHoursBefore, onClose, onDone }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const { fields, validate } = useCard();
-  const newEnd = new Date(`${day}T${time}:00`);
-  const valid = newEnd > currentEnd;
+  const slots = slotsForDay(rental.company, day);
+  const t = slots.includes(time) ? time : slots[0];
+  const newEnd = t ? new Date(`${day}T${t}:00`) : null;
+  const valid = Boolean(newEnd) && newEnd > currentEnd;
   const extraDays = valid ? countDays(currentEnd, newEnd) : 0;
   const amount = extraDays * rental.dailyPrice;
 
@@ -64,11 +66,11 @@ export function ExtensionModal({ rental, minHoursBefore, onClose, onDone }) {
         <span className="muted small">موعد التسليم الحالي: <b>{fmtDateTime(currentEnd)}</b>. التمديد لازم ينطلب قبل التسليم بـ{minHoursBefore} ساعة على الأقل.</span>
         <div className="time-row">
           <Field label="يوم التسليم الجديد"><input className="input" type="date" value={day} min={isoDay(currentEnd)} onChange={(e) => setDay(e.target.value)} /></Field>
-          <Field label="الساعة"><select className="input" value={time} onChange={(e) => setTime(e.target.value)}>{HOURS.map((h) => <option key={h} value={h}>{h}</option>)}</select></Field>
+          <Field label="الساعة"><select className="input" value={t || ''} disabled={!slots.length} onChange={(e) => setTime(e.target.value)}>{slots.length ? slots.map((h) => <option key={h} value={h}>{h}</option>) : <option value="">—</option>}</select></Field>
         </div>
         {valid ? (
           <div className="alert small">{extraDaysText(extraDays)} · <b>{money(amount)}</b>. بتدفعها هلأ، وإذا الشركة رفضت أو ما ردّت بترجعلك كاملة.</div>
-        ) : <div className="alert amber small">الموعد الجديد لازم يكون بعد موعد التسليم الحالي.</div>}
+        ) : <div className="alert amber small">{slots.length ? 'الموعد الجديد لازم يكون بعد موعد التسليم الحالي.' : `الفرع مسكّر يوم ${dayName(day)}. اختار يوم ثاني للتسليم.`}</div>}
         {fields}
         <ErrorBox error={error} />
         <div className="row">

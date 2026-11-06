@@ -24,13 +24,13 @@ export async function seed() {
   const [najma, riyada, sahel] = await User.create([
     { ...verified, role: 'company', name: 'النجمة لتأجير السيارات', email: 'najma@redrive.ps', phone: '+970590000001', city: 'ramallah',
       documents: docs(['commercialRegister', 'companyLicense']),
-      company: { address: 'شارع الإرسال، رام الله', phone: '022950000', description: 'شركة تأجير سيارات مرخّصة، عندها سيارات عائلية واقتصادية وSUV.', location: { lat: 31.9073, lng: 35.2045 } } },
+      company: { address: 'شارع الإرسال، رام الله', phone: '022950000', description: 'شركة تأجير سيارات مرخّصة، عندها سيارات عائلية واقتصادية وSUV.', location: { lat: 31.9073, lng: 35.2045 }, hours: [0, 1, 2, 3, 4, 5, 6].map((day) => (day === 5 ? { day, open: '10:00', close: '16:00', closed: false } : { day, open: '08:00', close: '21:00', closed: false })) } },
     { ...verified, role: 'company', name: 'الريادة للسيارات', email: 'riyada@redrive.ps', phone: '+970590000002', city: 'nablus',
       documents: docs(['commercialRegister', 'companyLicense']),
-      company: { address: 'شارع فيصل، نابلس', phone: '092380000', description: 'سيارات اقتصادية وحديثة بأسعار مناسبة.', location: { lat: 32.2227, lng: 35.2621 } } },
+      company: { address: 'شارع فيصل، نابلس', phone: '092380000', description: 'سيارات اقتصادية وحديثة بأسعار مناسبة.', location: { lat: 32.2227, lng: 35.2621 }, hours: [0, 1, 2, 3, 4, 5, 6].map((day) => (day === 5 ? { day, open: '08:00', close: '20:00', closed: true } : { day, open: '08:00', close: '20:00', closed: false })) } },
     { ...verified, role: 'company', name: 'السهل لتأجير السيارات', email: 'sahel@redrive.ps', phone: '+970590000003', city: 'hebron',
       documents: docs(['commercialRegister', 'companyLicense']),
-      company: { address: 'رأس الجورة، الخليل', phone: '022220000', description: 'سيارات عائلية 7 ركاب للرحلات.', location: { lat: 31.5497, lng: 35.0960 } } },
+      company: { address: 'رأس الجورة، الخليل', phone: '022220000', description: 'سيارات عائلية 7 ركاب للرحلات.', location: { lat: 31.5497, lng: 35.0960 }, hours: [0, 1, 2, 3, 4, 5, 6].map((day) => (day === 5 ? { day, open: '07:00', close: '22:00', closed: false } : { day, open: '07:00', close: '22:00', closed: false })) } },
   ]);
 
   const [omar, layan] = await User.create([

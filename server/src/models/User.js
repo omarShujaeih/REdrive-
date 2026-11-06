@@ -27,6 +27,8 @@ const userSchema = new mongoose.Schema({
     phone: String,
     description: String,
     location: { lat: Number, lng: Number },
+    // Weekly opening hours of the branch (day 0 = Sunday); pick-up and return must fall inside them.
+    hours: [{ day: Number, open: String, close: String, closed: Boolean, _id: false }],
   },
   favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Car' }],
   ratingAvg: { type: Number, default: 0 },

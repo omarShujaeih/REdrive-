@@ -4,7 +4,8 @@ import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import Calendar from '../components/Calendar.jsx';
 import { Badge, CarImage, ErrorBox, Loading, Stars, useLoad } from '../components/ui.jsx';
-import { CITIES, FUEL, HOURS, TRANSMISSION, countDays, daysWord, isoDay, money, fmtDate } from '../labels.js';
+import { CITIES, FUEL, TRANSMISSION, countDays, dayName, daysWord, isoDay, money, fmtDate, slotsForDay } from '../labels.js';
+import { OpeningHours } from '../components/Hours.jsx';
 
 export function bookedDays(bookings, statuses = ['confirmed', 'active']) {
   const set = new Set();
@@ -35,13 +36,16 @@ export default function CarDetails() {
   const blocked = new Set(car.blockedDates.map(isoDay));
   const from = isoDay(car.availableFrom); const to = isoDay(car.availableTo); const today = isoDay(Date.now());
   const unavailable = (k) => k < today || k < from || k > to || booked.has(k) || blocked.has(k);
-  const pickupAt = start ? new Date(`${start}T${startTime}:00`) : null;
-  const returnAt = end ? new Date(`${end}T${endTime}:00`) : null;
+  // Hours come from the branch's opening hours on each day; today only offers hours still ahead.
+  const nowHour = new Date().getHours();
+  const startSlots = slotsForDay(car.company, start).filter((h) => start !== today || Number(h.slice(0, 2)) > nowHour);
+  const endSlots = slotsForDay(car.company, end);
+  const st = startSlots.includes(startTime) ? startTime : startSlots[0];
+  const et = endSlots.includes(endTime) ? endTime : endSlots[0];
+  const pickupAt = start && st ? new Date(`${start}T${st}:00`) : null;
+  const returnAt = end && et ? new Date(`${end}T${et}:00`) : null;
   const tooSoon = pickupAt && pickupAt < new Date();
   const days = pickupAt && returnAt && returnAt > pickupAt && !tooSoon ? countDays(pickupAt, returnAt) : 0;
-  // Today only offers hours that have not passed yet.
-  const nowHour = new Date().getHours();
-  const pickupHours = start === today ? HOURS.filter((h) => Number(h.slice(0, 2)) > nowHour) : HOURS;
 
   const pick = (k) => {
     if (!start || end || k <= start) { setStart(k); setEnd(''); return; }
@@ -109,7 +113,9 @@ export default function CarDetails() {
           <section className="card col">
             <h3>مكان الاستلام والتسليم</h3>
             <span>{car.pickupLocation?.address}</span>
-            <span className="muted small">بتستلم السيارة وبترجّعها على نفس الفرع، بالساعة اللي بتختارها وقت الحجز.</span>
+            <span className="muted small">بتستلم السيارة وبترجّعها على نفس الفرع، بالساعة اللي بتختارها وقت الحجز ضمن ساعات الدوام.</span>
+            <b className="small" style={{ marginTop: 6 }}>ساعات دوام الفرع</b>
+            <OpeningHours company={car.company} />
           </section>
 
           <section className="card col">
@@ -132,16 +138,18 @@ export default function CarDetails() {
           </div>
           <div className="time-row">
             <label className="field"><span className="small bold">ساعة الاستلام</span>
-              <select className="input" value={startTime} onChange={(e) => setStartTime(e.target.value)} disabled={!start}>
-                {(pickupHours.includes(startTime) ? pickupHours : [startTime, ...pickupHours]).map((h) => <option key={h} value={h}>{h}</option>)}
+              <select className="input" value={st || ''} onChange={(e) => setStartTime(e.target.value)} disabled={!start || !startSlots.length}>
+                {startSlots.length ? startSlots.map((h) => <option key={h} value={h}>{h}</option>) : <option value="">—</option>}
               </select>
             </label>
             <label className="field"><span className="small bold">ساعة التسليم</span>
-              <select className="input" value={endTime} onChange={(e) => setEndTime(e.target.value)} disabled={!end}>
-                {HOURS.map((h) => <option key={h} value={h}>{h}</option>)}
+              <select className="input" value={et || ''} onChange={(e) => setEndTime(e.target.value)} disabled={!end || !endSlots.length}>
+                {endSlots.length ? endSlots.map((h) => <option key={h} value={h}>{h}</option>) : <option value="">—</option>}
               </select>
             </label>
           </div>
+          {start && !startSlots.length && <div className="alert amber small">{start === today ? 'خلص دوام الفرع اليوم.' : `الفرع مسكّر يوم ${dayName(start)}.`} اختار يوم استلام ثاني.</div>}
+          {end && !endSlots.length && <div className="alert amber small">الفرع مسكّر يوم {dayName(end)}. اختار يوم تسليم ثاني.</div>}
           {tooSoon && <div className="alert amber small">ساعة الاستلام فاتت. اختار ساعة بعد الساعة هلأ.</div>}
           {days > 0 && (
             <>
@@ -151,7 +159,7 @@ export default function CarDetails() {
             </>
           )}
           {user?.role === 'company' || user?.role === 'admin' ? <div className="alert">الحجز متاح لحسابات المستأجرين بس.</div> : (
-            <button type="button" className="btn block" disabled={!days} onClick={() => navigate(`/checkout/${car._id}?start=${start}T${startTime}&end=${end}T${endTime}`)}>اطلب الحجز</button>
+            <button type="button" className="btn block" disabled={!days} onClick={() => navigate(`/checkout/${car._id}?start=${start}T${st}&end=${end}T${et}`)}>اطلب الحجز</button>
           )}
           {!end && <span className="muted small">اختار يوم التسليم من التقويم عشان نحسبلك المجموع.</span>}
           <span className="muted small">بتدفع المبلغ كامل أونلاين، وبيضل محجوز لحد ما الشركة توافق. إذا رفضت أو ما ردّت خلال 12 ساعة، بترجعلك المصاري كاملة.</span>

@@ -3,11 +3,15 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { ErrorBox, Field, StatusBadge } from '../components/ui.jsx';
-import { CITIES, USER_STATUS } from '../labels.js';
+import { CITIES, USER_STATUS, companyHours } from '../labels.js';
+import { HoursEditor } from '../components/Hours.jsx';
 
 export default function Profile() {
   const { user, setUser, setToast } = useAuth();
-  const [f, setF] = useState({ name: user.name, city: user.city || '', description: user.company?.description || '', companyPhone: user.company?.phone || '' });
+  const [f, setF] = useState({
+    name: user.name, city: user.city || '', description: user.company?.description || '', companyPhone: user.company?.phone || '',
+    ...(user.role === 'company' && { hours: companyHours(user) }),
+  });
   const [pw, setPw] = useState({ current: '', next: '' });
   const [error, setError] = useState('');
   const isCompany = user.role === 'company';
@@ -47,6 +51,11 @@ export default function Profile() {
             <Field label="العنوان"><input className="input" value={user.company?.address || ''} disabled /></Field>
             <Field label="هاتف الشركة"><input className="input ltr" value={f.companyPhone} onChange={(e) => setF({ ...f, companyPhone: e.target.value })} /></Field>
             <Field label="نبذة عن الشركة"><textarea className="input" value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
+            <div className="field">
+              <label>ساعات دوام الفرع</label>
+              <span className="hint">الزبون بيقدر يختار وقت الاستلام والتسليم بس ضمن هالساعات.</span>
+              <HoursEditor value={f.hours} onChange={(hours) => setF({ ...f, hours })} />
+            </div>
           </>
         )}
         <button className="btn">احفظ التغييرات</button>

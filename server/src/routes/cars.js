@@ -11,7 +11,7 @@ import { estimatePrice } from '../services/price.js';
 import { notifyAdmins } from '../services/notify.js';
 
 const router = Router();
-const companyFields = 'name ratingAvg ratingCount company.address company.location city status';
+const companyFields = 'name ratingAvg ratingCount company.address company.location company.hours city status';
 
 // Public search: city, dates, price, transmission, fuel, brand, seats, minYear, q, sort, near (lat,lng)
 router.get('/', wrap(async (req, res) => {

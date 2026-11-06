@@ -85,3 +85,21 @@ export const EXTENSION_STATUS = {
   rejected: { label: 'انرفض', tone: 'red' },
   expired: { label: 'انتهى بدون رد', tone: '' },
 };
+
+// Branch opening hours (day 0 = Sunday). Companies without saved hours are open 08:00–20:00 daily, like the API.
+export const DAY_NAMES = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+export const WEEK_ORDER = [6, 0, 1, 2, 3, 4, 5]; // Saturday first, as the calendar
+export const DEFAULT_HOURS = Array.from({ length: 7 }, (_, day) => ({ day, open: '08:00', close: '20:00', closed: false }));
+export const companyHours = (company) => {
+  const list = company?.company?.hours;
+  return Array.isArray(list) && list.length === 7 ? list : DEFAULT_HOURS;
+};
+// Hourly pick-up/return slots on a day ("YYYY-MM-DD"): every full hour from opening time up to (not including) closing,
+// the same rule the API checks.
+export const slotsForDay = (company, day) => {
+  if (!day) return HOURS;
+  const h = companyHours(company).find((x) => x.day === new Date(`${day}T12:00:00`).getDay());
+  if (!h || h.closed) return [];
+  return Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, "0")}:00`).filter((t) => t >= h.open && t < h.close);
+};
+export const dayName = (day) => DAY_NAMES[new Date(`${day}T12:00:00`).getDay()];

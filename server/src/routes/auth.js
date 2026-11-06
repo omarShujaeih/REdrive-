@@ -8,6 +8,7 @@ import { upload, fileUrl } from '../middleware/upload.js';
 import { wrap, httpError } from '../middleware/error.js';
 import { sendEmail, sendSms, notifyAdmins } from '../services/notify.js';
 import { config, rules } from '../config.js';
+import { parseHours } from '../services/hours.js';
 
 const router = Router();
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -141,12 +142,15 @@ router.post('/reset-password', wrap(async (req, res) => {
 router.get('/me', auth, (req, res) => res.json({ user: req.user.toPublic() }));
 
 router.patch('/me', auth, wrap(async (req, res) => {
-  const { name, city, description, companyPhone } = req.body;
+  const { name, city, description, companyPhone, hours } = req.body;
   if (name) req.user.name = name;
   if (city !== undefined) req.user.city = city;
   if (req.user.role === 'company') {
     if (description !== undefined) req.user.company.description = description;
     if (companyPhone !== undefined) req.user.company.phone = companyPhone;
+    if (hours !== undefined) {
+      try { req.user.company.hours = parseHours(hours); } catch (err) { throw httpError(400, err.message); }
+    }
   }
   await req.user.save();
   res.json({ user: req.user.toPublic() });

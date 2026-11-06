@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { api } from '../api.js';
-import { Badge, CarCard, ErrorBox, Loading, Stars, useLoad } from '../components/ui.jsx';
+import { Badge, CarCard, ErrorBox, Loading, Stars, useLoad } from '../components/ui.jsx';
+import { OpeningHours } from '../components/Hours.jsx';
 import { CITIES, fmtDate } from '../labels.js';
 
 export default function CompanyProfile() {
@@ -18,6 +19,7 @@ export default function CompanyProfile() {
           <span className="muted">{CITIES[company.city] || ''} · على Redrive من {new Date(company.createdAt).toLocaleDateString('ar-JO-u-nu-latn', { month: 'long', year: 'numeric' })}</span>
           {company.company?.description && <p>{company.company.description}</p>}
           <span className="small">{company.company?.address}</span>
+          <details className="small"><summary>ساعات الدوام</summary><OpeningHours company={company} /></details>
         </div>
         <div className="row" style={{ gap: 24 }}>
           <div className="col" style={{ gap: 0, alignItems: 'center' }}><b style={{ fontSize: 22 }}><Stars value={company.ratingAvg} /></b><span className="muted small">التقييم</span></div>

@@ -8,6 +8,7 @@ import User from '../models/User.js';
 import { auth, requireRole, requireVerified } from '../middleware/auth.js';
 import { wrap, httpError } from '../middleware/error.js';
 import { unavailableReason, countDays } from '../services/availability.js';
+import { closedReason } from '../services/hours.js';
 import {
   createPaymentIntent, holdPayment, holdExtra, recordDue, payDue, settle, paymentMode, refundPaymentRef,
 } from '../services/payment.js';
@@ -43,11 +44,12 @@ const carLabel = async (rental) => {
 };
 
 async function loadBookableCar({ carId, startDate, endDate }) {
-  const car = await Car.findById(carId).populate('company', 'status');
+  const car = await Car.findById(carId).populate('company', 'status company.hours');
   if (!car || car.company.status !== 'verified') throw httpError(404, 'السيارة مش موجودة');
   const start = new Date(startDate); const end = new Date(endDate);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) throw httpError(400, 'اختار وقت الاستلام والتسليم');
-  const reason = await unavailableReason(car, start, end);
+  const reason = await unavailableReason(car, start, end)
+    || closedReason(car.company, start, 'الاستلام') || closedReason(car.company, end, 'التسليم');
   if (reason) throw httpError(409, reason);
   return { car, start, end, days: countDays(start, end) };
 }
@@ -248,7 +250,9 @@ router.post('/:id/extensions', requireRole('renter'), wrap(async (req, res) => {
   if (Number.isNaN(requestedEnd.getTime())) throw httpError(400, 'اختار موعد التسليم الجديد');
   if (requestedEnd <= rental.endDate) throw httpError(400, 'الموعد الجديد لازم يكون بعد موعد التسليم الحالي');
   const car = await Car.findById(rental.car);
-  const reason = await unavailableReason(car, rental.endDate, requestedEnd, rental._id);
+  const companyUser = await User.findById(rental.company).select('company.hours');
+  const reason = await unavailableReason(car, rental.endDate, requestedEnd, rental._id)
+    || closedReason(companyUser, requestedEnd, 'التسليم');
   if (reason) throw httpError(409, reason);
 
   const extraDays = countDays(rental.endDate, requestedEnd);
