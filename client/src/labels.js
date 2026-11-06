@@ -50,3 +50,11 @@ export const isoDay = (d) => {
   const x = new Date(d);
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
 };
+
+// Short class label for a car card, from seats and daily price.
+export const carCategory = (c) => {
+  if (c.seats >= 7) return 'عائلية 7 ركاب';
+  if (c.dailyPrice <= 140) return 'اقتصادية';
+  if (c.dailyPrice >= 240) return 'فاخرة';
+  return 'مريحة';
+};

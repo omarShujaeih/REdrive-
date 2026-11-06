@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CITIES, FUEL, TRANSMISSION, money, carName } from '../labels.js';
+import { CITIES, FUEL, TRANSMISSION, money, carName, carCategory } from '../labels.js';
 
 export function Logo({ to = '/', label = 'Redrive، الصفحة الرئيسية' }) {
   return (
@@ -33,6 +33,12 @@ const ICONS = {
   pin: <><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z" /><circle cx="12" cy="11" r="2.2" /></>,
   calendar: <><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 9.5h17" /><path d="M8 3v4" /><path d="M16 3v4" /></>,
   arrowLeft: <><path d="M19 12H5" /><path d="M11 6l-6 6 6 6" /></>,
+  gear: <><circle cx="6" cy="5" r="1.8" /><circle cx="12" cy="5" r="1.8" /><circle cx="18" cy="5" r="1.8" /><circle cx="6" cy="19" r="1.8" /><circle cx="12" cy="19" r="1.8" /><path d="M6 7v10M12 7v10M18 7v5H6" /></>,
+  seat: <><path d="M8 3.5h2.5a2 2 0 0 1 2 2V13h4.5a2 2 0 0 1 2 2v3.5H9.5a2 2 0 0 1-2-1.8L6.5 6.2A2.3 2.3 0 0 1 8 3.5z" /><path d="M10 18.5V21M17 18.5V21" /></>,
+  fuel: <><path d="M5 20V6a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v14" /><path d="M3.5 20h12" /><path d="M7.5 8.5h4" /><path d="M14 10h1.5a2 2 0 0 1 2 2v4a1.5 1.5 0 0 0 3 0V8.5L18 6" /></>,
+  key: <><circle cx="8" cy="15" r="4.5" /><path d="M11.2 11.8L20 3M16.5 6.5l2.5 2.5M14 9l2 2" /></>,
+  chat: <><path d="M4 5.5h16v10H9l-5 4z" /><path d="M8 9.5h8M8 12.5h5" /></>,
+  map: <><path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5z" /><path d="M9 4v13.5M15 6.5V20" /></>,
 };
 
 export function Icon({ name, size = 20, color = 'currentColor' }) {
@@ -87,25 +93,40 @@ export function CarImage({ car, height }) {
   );
 }
 
-export function CarCard({ car, days, extra }) {
+// Car card: photo with a glass category tag and rating, name, company and city, quick specs with
+// icons, the daily price, and a booking button. The whole card is clickable through the title link;
+// the button sits above it. On hover the card lifts and an LED-like light runs along its edge.
+export function CarCard({ car, days, extra, style }) {
+  const to = `/cars/${car._id}`;
+  const rated = car.ratingAvg > 0;
   return (
-    <Link to={`/cars/${car._id}`} className="car-card">
-      <CarImage car={car} />
+    <article className="car-card" style={style}>
+      <div className="car-media">
+        <CarImage car={car} />
+        <span className="car-tag">{carCategory(car)}</span>
+        <span className={`car-rating ${rated ? '' : 'new'}`}>
+          {rated ? <><Icon name="star" size={14} color="var(--star)" />{Number(car.ratingAvg).toFixed(1)}</> : 'جديدة'}
+        </span>
+      </div>
       <div className="body">
-        <div className="row between">
-          <b>{car.brand} {car.model} <span className="muted" style={{ fontWeight: 400 }}>{car.year}</span></b>
-          <Stars value={car.ratingAvg} />
-        </div>
-        <span className="muted small">{TRANSMISSION[car.transmission]} · {FUEL[car.fuel]} · {car.seats} مقاعد · {CITIES[car.city]}</span>
-        {car.company?.name && <span className="small">{car.company.name}</span>}
-        <div className="row between" style={{ marginTop: 4 }}>
-          <span><span className="price">{money(car.dailyPrice)}</span><span className="muted small">/يوم</span></span>
-          {days > 0 && <span className="muted small">{money(car.dailyPrice * days)} المجموع</span>}
-          {car.distanceKm != null && <span className="muted small">{car.distanceKm} كم</span>}
+        <h3 className="car-title"><Link to={to} className="stretched">{car.brand} {car.model}</Link><span className="car-year">{car.year}</span></h3>
+        <span className="car-company">{[car.company?.name, CITIES[car.city]].filter(Boolean).join(' · ')}</span>
+        <ul className="specs" aria-label="المواصفات">
+          <li><Icon name="gear" size={16} />{TRANSMISSION[car.transmission]}</li>
+          <li><Icon name="seat" size={16} />{car.seats} مقاعد</li>
+          <li><Icon name="fuel" size={16} />{FUEL[car.fuel]}</li>
+        </ul>
+        <div className="car-foot">
+          <div className="car-price">
+            <span><b>{money(car.dailyPrice)}</b> / يوم</span>
+            {days > 0 && <small>{money(car.dailyPrice * days)} لـ {days} أيام</small>}
+            {car.distanceKm != null && <small>على بعد {car.distanceKm} كم</small>}
+          </div>
+          <Link to={to} className="btn sm book" aria-label={`احجز ${car.brand} ${car.model}`}>احجز<Icon name="arrowLeft" size={18} /></Link>
         </div>
         {extra}
       </div>
-    </Link>
+    </article>
   );
 }
 

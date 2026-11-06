@@ -67,17 +67,43 @@ function SiteHeader() {
   );
 }
 
+// Legal pages don't exist yet, so those entries are plain text until they do.
+const FOOTER = [
+  { title: 'Redrive', links: [['/', 'عن المنصة'], ['/assistant', 'تواصل معنا'], ['/assistant', 'الأسئلة الشائعة']] },
+  { title: 'للمستأجرين', links: [['/search', 'تصفّح السيارات'], ['/#how', 'كيف بتستأجر'], ['/register?role=renter', 'توثيق الحساب']] },
+  { title: 'للشركات', links: [['/register?role=company', 'بوابة الشركات'], ['/login', 'دخول الشركات']] },
+  { title: 'قانوني', links: [[null, 'الشروط والأحكام'], [null, 'سياسة الخصوصية'], [null, 'سياسة الإلغاء']] },
+];
+
+function SiteFooter() {
+  return (
+    <footer className="site-footer">
+      <div className="container footer-grid">
+        <div className="footer-brand">
+          <Logo />
+          <p>المنصة الفلسطينية لتأجير السيارات. سيارات من شركات مرخّصة وموثّقة، والدفع أونلاين بأمان.</p>
+        </div>
+        {FOOTER.map((col) => (
+          <nav key={col.title} aria-label={col.title}>
+            <h3>{col.title}</h3>
+            <ul>{col.links.map(([to, label]) => <li key={label}>{to ? <Link to={to}>{label}</Link> : <span>{label}</span>}</li>)}</ul>
+          </nav>
+        ))}
+      </div>
+      <div className="container footer-bottom">
+        <span>© 2026 Redrive · المنصة الفلسطينية لتأجير السيارات</span>
+        <span>صُنع في فلسطين</span>
+      </div>
+    </footer>
+  );
+}
+
 export function PublicLayout() {
   return (
     <>
       <SiteHeader />
       <Page />
-      <footer className="footer">
-        <div className="container row between">
-          <span>© {new Date().getFullYear()} Redrive · المنصة الفلسطينية لتأجير السيارات</span>
-          <span className="row"><Link to="/assistant">الأسئلة الشائعة</Link><Link to="/register?role=company">بوابة الشركات</Link></span>
-        </div>
-      </footer>
+      <SiteFooter />
     </>
   );
 }

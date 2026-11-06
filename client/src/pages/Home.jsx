@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { CarCard, Icon, Loading, useLoad } from '../components/ui.jsx';
 import HeroFleet from '../components/HeroFleet.jsx';
+import Reveal from '../components/Reveal.jsx';
 import { CITIES, isoDay } from '../labels.js';
 
 export default function Home() {
@@ -59,42 +60,88 @@ export default function Home() {
         </form>
       </section>
 
-      {[{ title: 'سيارات في رام الله', q: suv, link: '/search?city=ramallah' }, { title: 'سيارات اقتصادية في نابلس', q: eco, link: '/search?city=nablus&sort=price' }].map((s) => (
-        <section className="container col" key={s.title}>
-          <div className="row between"><h2>{s.title}</h2><Link to={s.link}>عرض الكل</Link></div>
+      {[
+        { title: 'الأعلى تقييماً في رام الله', sub: 'سيارات من شركات موثّقة، مرتبة حسب تقييم الزبائن.', q: suv, link: '/search?city=ramallah&sort=rating' },
+        { title: 'سيارات اقتصادية في نابلس', sub: 'أوفر الأسعار باليوم للمشاوير داخل المدينة وبينها.', q: eco, link: '/search?city=nablus&sort=price' },
+      ].map((s) => (
+        <Reveal className="container home-block" key={s.title}>
+          <div className="section-head rv">
+            <div><h2>{s.title}</h2><p>{s.sub}</p></div>
+            <Link to={s.link} className="see-all">عرض الكل<Icon name="arrowLeft" size={18} /></Link>
+          </div>
           {s.q.loading ? <Loading /> : (
-            <div className="grid cards">{s.q.data?.cars.slice(0, 4).map((c) => <CarCard key={c._id} car={c} />)}</div>
+            <div className="grid cards three">{s.q.data?.cars.slice(0, 3).map((c, i) => <CarCard key={c._id} car={c} style={{ '--i': i + 1 }} />)}</div>
           )}
-        </section>
+        </Reveal>
       ))}
 
-      <section className="container" id="how" style={{ scrollMarginTop: 96 }}>
-        <div className="card soft col">
-          <h2>كيف بتستأجر من Redrive</h2>
-          <p className="muted">لازم يكون حسابك موثّق بالهوية ورخصة السواقة قبل أول حجز.</p>
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+      <Reveal className="band" id="how">
+        <div className="container home-block">
+          <div className="section-head rv">
+            <div><h2>كيف بتستأجر من Redrive</h2><p>لازم يكون حسابك موثّق بالهوية ورخصة السواقة قبل أول حجز.</p></div>
+          </div>
+          <ol className="steps-grid">
             {[
-              ['ابحث وقارن', 'دوّر حسب المدينة أو على الخريطة، وفلتر حسب السعر وناقل الحركة وعدد المقاعد.'],
-              ['احجز وادفع أونلاين', 'اختار تاريخ الاستلام والتسليم وادفع. طلبك بيوصل للشركة بعد ما يتم الدفع.'],
-              ['استلم السيارة', 'لما الشركة توافق بيوصلك إشعار بتفاصيل الاستلام. بتوقّع عقد الإيجار عند الشركة وبتستلم السيارة.'],
-            ].map(([t, d], i) => (
-              <div key={t} className="card col" style={{ gap: 6 }}>
-                <span className="avatar">{i + 1}</span><b>{t}</b><span className="muted small">{d}</span>
-              </div>
+              ['search', 'ابحث وقارن', 'دوّر حسب المدينة أو على الخريطة، وفلتر حسب السعر وناقل الحركة وعدد المقاعد.'],
+              ['card', 'احجز وادفع أونلاين', 'اختار تاريخ الاستلام والتسليم وادفع. طلبك بيوصل للشركة بعد ما يتم الدفع.'],
+              ['key', 'استلم السيارة', 'لما الشركة توافق بيوصلك إشعار بتفاصيل الاستلام. بتوقّع عقد الإيجار عند الشركة وبتستلم السيارة.'],
+            ].map(([icon, t, d], i) => (
+              <li key={t} className="glass step rv" style={{ '--i': i + 1 }}>
+                <span className="step-icon"><Icon name={icon} size={24} color="var(--blue)" /></span>
+                <span className="step-n">0{i + 1}</span>
+                <h3>{t}</h3>
+                <p>{d}</p>
+              </li>
             ))}
-          </div>
+          </ol>
         </div>
-      </section>
+      </Reveal>
 
-      <section className="container">
-        <div className="card row between" style={{ background: 'var(--hero)', borderColor: 'transparent', borderRadius: 'var(--r-xl)', padding: 24 }}>
-          <div className="col" style={{ gap: 4 }}>
-            <h2>مساعد ذكي بجاوبك على أسئلتك</h2>
-            <span className="muted">بساعدك تلاقي السيارة المناسبة وتكمل الحجز.</span>
+      <Reveal className="container home-block">
+        <div className="duo">
+          <div className="glass map-card rv" style={{ '--i': 1 }}>
+            <div className="map-art" aria-hidden="true">
+              <svg viewBox="0 0 400 220" preserveAspectRatio="xMidYMid slice">
+                <path d="M-10 160 C80 120 140 190 230 140 S360 70 420 100" />
+                <path d="M40 -10 C70 60 60 120 120 230" />
+                <path d="M250 -10 C240 70 300 120 290 230" />
+                <path d="M-10 60 C100 80 200 30 420 50" />
+              </svg>
+              {[['₪150', '22%', '30%'], ['₪230', '58%', '52%'], ['₪120', '78%', '24%']].map(([p, x, y], i) => (
+                <span key={p} className="map-pin" style={{ insetInlineStart: x, top: y, '--i': i }}>{p}</span>
+              ))}
+              <span className="map-me" style={{ insetInlineStart: '44%', top: '62%' }} />
+            </div>
+            <div className="duo-body">
+              <h2>السيارات القريبة منك</h2>
+              <p>شوف السيارات المتاحة على الخريطة، واختار الأقرب لموقعك.</p>
+              <Link to={`/search?near=1&start=${start}&end=${end}`} className="btn"><Icon name="map" />افتح الخريطة</Link>
+            </div>
           </div>
-          <Link to="/assistant" className="btn">ابدأ محادثة</Link>
+          <div className="glass assistant-card rv" style={{ '--i': 2 }}>
+            <div className="chat-demo" aria-hidden="true">
+              <p className="bubble user">بدي سيارة عائلية 7 ركاب بالخليل من الجمعة للأحد</p>
+              <p className="bubble assistant">في 4 سيارات 7 ركاب متاحة بهديك التواريخ. أرخصها كيا كارنفال بـ ₪260 باليوم. بدك أعرضهم؟</p>
+            </div>
+            <div className="duo-body">
+              <h2>اسأل Redrive</h2>
+              <p>مساعد ذكي بجاوبك على أسئلتك، وبساعدك تلاقي السيارة المناسبة وتكمل الحجز.</p>
+              <Link to="/assistant" className="btn"><Icon name="chat" />ابدأ محادثة</Link>
+            </div>
+          </div>
         </div>
-      </section>
+      </Reveal>
+
+      <Reveal className="container home-block">
+        <div className="section-head rv"><div><h2>تأجير سيارات حسب المدينة</h2><p>اختار مدينتك وشوف السيارات المتاحة فيها.</p></div></div>
+        <ul className="city-grid">
+          {Object.entries(CITIES).map(([k, v], i) => (
+            <li key={k} className="rv" style={{ '--i': i % 5 + 1 }}>
+              <Link to={`/search?city=${k}`} className="glass city"><Icon name="pin" size={20} color="var(--blue)" /><span>{v}</span><Icon name="arrowLeft" size={18} /></Link>
+            </li>
+          ))}
+        </ul>
+      </Reveal>
     </main>
   );
 }
