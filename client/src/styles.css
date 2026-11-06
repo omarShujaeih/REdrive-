@@ -521,3 +521,32 @@ table.table { width: 100%; border-collapse: collapse; background: #fff; }
 @media (max-width: 900px) { .site-footer li a, .site-footer li span { min-height: 44px; } }
 /* Standalone small links on the login page keep a 44px tap height */
 .auth-form .field a.small, .auth-foot a { display: inline-flex; align-items: center; min-height: 44px; }
+
+/* Date fields: iOS Safari gives native date inputs an intrinsic minimum width that ignores
+   width:100%, so they spill out of narrow cards. Drop the native look and let them shrink. */
+input.input[type="date"], input.input[type="time"], input.input[type="datetime-local"] { -webkit-appearance: none; appearance: none; display: block; min-width: 0; max-width: 100%; width: 100%; line-height: normal; }
+input.input[type="date"]::-webkit-date-and-time-value { text-align: start; margin: 0; min-height: 1.2em; }
+.search-card > *, .search-card .field > * { min-width: 0; max-width: 100%; }
+
+/* Narrow phones: keep the header inside the screen (an overflowing header makes mobile browsers zoom the whole page out) */
+.lbl-short { display: none; }
+@media (max-width: 420px) {
+  .logo svg { width: 34px; height: 34px; }
+  .logo b { font-size: 20px; }
+  .site-header .actions { gap: 6px; }
+  .site-header .bar { gap: 10px; }
+  .site-header .btn.sm { padding: 0 12px; }
+  .auth-top .nav-link { width: 44px; padding: 0; }
+  .auth-top .nav-link .lbl-long { display: none; }
+}
+@media (max-width: 359px) {
+  .site-header .lbl-long { display: none; }
+  .site-header .lbl-short { display: inline; }
+}
+/* Phone menu extras: favorites and log out live in the menu; the heart icon hides on narrow phones */
+.main-nav .menu-only { display: none; }
+@media (max-width: 900px) {
+  .main-nav .menu-only { display: flex; align-items: center; height: var(--control); padding: 0 14px; border-radius: var(--radius); font-size: var(--fs-4); color: var(--ink-2); }
+  .main-nav .menu-logout { border: 0; background: none; font: inherit; font-size: var(--fs-4); color: var(--red); cursor: pointer; text-align: start; margin-top: 6px; border-top: 1px solid var(--line-soft); border-radius: 0; }
+}
+@media (max-width: 420px) { .hide-xs { display: none; } }

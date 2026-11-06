@@ -48,7 +48,7 @@ function SiteHeader() {
           </button>
           {!user && (
             <>
-              <Link to="/login" className="btn sm">تسجيل الدخول</Link>
+              <Link to="/login" className="btn sm"><span className="lbl-long">تسجيل الدخول</span><span className="lbl-short">دخول</span></Link>
               <Link to="/register?role=renter" className="text-link hide-sm">إنشاء حساب</Link>
             </>
           )}
@@ -58,13 +58,15 @@ function SiteHeader() {
               <Link to="/notifications" className="nav-link icon" aria-label={unread > 0 ? `الإشعارات، ${unread} جداد` : 'الإشعارات'}>
                 <Icon name="bell" size={22} />{unread > 0 && <span className="dot" aria-hidden="true">{unread}</span>}
               </Link>
-              {user.role === 'renter' && <Link to="/favorites" className="nav-link icon" aria-label="المفضلة"><Icon name="heart" /></Link>}
+              {user.role === 'renter' && <Link to="/favorites" className="nav-link icon hide-xs" aria-label="المفضلة"><Icon name="heart" /></Link>}
               <button type="button" className="text-link hide-sm" onClick={() => { logout(); navigate('/'); }}>خروج</button>
             </>
           )}
         </div>
         <nav id="site-menu" className={`main-nav ${open ? 'open' : ''}`} aria-label="القائمة الرئيسية">
           {links.map((l) => <NavLink key={l.to} to={l.to} end={l.end} onClick={() => setOpen(false)}>{l.label}</NavLink>)}
+          {user?.role === 'renter' && <NavLink to="/favorites" className="menu-only" onClick={() => setOpen(false)}>المفضلة</NavLink>}
+          {user && <button type="button" className="menu-only menu-logout" onClick={() => { setOpen(false); logout(); navigate('/'); }}>تسجيل الخروج</button>}
         </nav>
         <Logo />
       </div>

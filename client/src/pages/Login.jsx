@@ -51,7 +51,7 @@ export default function Login() {
   return (
     <div className="auth-page">
       <header className="container auth-top">
-        <Link to="/assistant" className="nav-link"><Icon name="sparkle" color="var(--blue)" />اسأل Redrive</Link>
+        <Link to="/assistant" className="nav-link" aria-label="اسأل Redrive"><Icon name="sparkle" color="var(--electric)" /><span className="lbl-long">اسأل Redrive</span></Link>
         <Logo />
       </header>
 
