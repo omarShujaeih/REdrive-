@@ -433,21 +433,10 @@ table.table { width: 100%; border-collapse: collapse; background: #fff; }
   .auth-visual img { position: relative; margin-top: -40px; }
 }
 
-/* Hero stage details: outlined wordmark behind the cars, studio floor light, car tags, info chips */
+/* Hero stage details: outlined wordmark behind the cars, studio floor light, info chips */
 .fleet-word { position: absolute; z-index: 0; left: 50%; top: 0; transform: translateX(-50%); direction: ltr; white-space: nowrap; pointer-events: none; user-select: none; font-family: 'Archivo', 'Arial Black', sans-serif; font-stretch: 125%; font-weight: 800; font-size: clamp(64px, 10.5vw, 176px); line-height: 1; letter-spacing: -.02em; color: transparent; -webkit-text-stroke: 1.5px rgba(11, 21, 48, .08); background: linear-gradient(180deg, rgba(11, 21, 48, .07), rgba(11, 21, 48, 0) 85%); -webkit-background-clip: text; background-clip: text; opacity: 0; animation: rd-fade 1.2s var(--ease) .2s forwards; }
 .fleet-floor { position: absolute; z-index: 0; left: 0; right: 0; bottom: -6%; height: 34%; pointer-events: none; background: radial-gradient(50% 48% at 50% 50%, rgba(255, 255, 255, .95), rgba(255, 255, 255, 0) 72%); }
 .fleet-floor::before { content: ''; position: absolute; left: 12%; right: 12%; top: 46%; height: 1px; background: linear-gradient(90deg, transparent, rgba(47, 107, 255, .45), transparent); box-shadow: 0 0 14px 1px rgba(47, 107, 255, .35); }
-.car-hotspot { position: absolute; z-index: 5; display: flex; flex-direction: column; align-items: center; color: var(--navy); transform: translate(-50%, -100%); opacity: 0; animation: hs-in .7s var(--ease) calc(var(--d) + 1.5s) forwards; }
-.car-hotspot:hover, .car-hotspot:focus-visible { color: var(--navy); }
-.hs-card { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 14px; border-radius: 14px; white-space: nowrap; background: rgba(255, 255, 255, .78); border: 1px solid rgba(255, 255, 255, .95); -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%); box-shadow: 0 12px 26px -14px rgba(11, 21, 48, .45); transition: transform .3s var(--ease), box-shadow .3s var(--ease); }
-.hs-card b { font-size: 13px; font-weight: 700; }
-.hs-card small { font-size: 12px; color: var(--muted); }
-.hs-card strong { color: var(--navy); font-weight: 700; }
-.hs-line { width: 1px; height: 16px; background: linear-gradient(rgba(11, 21, 48, 0), rgba(11, 21, 48, .4)); }
-.hs-dot { position: relative; width: 10px; height: 10px; border-radius: 50%; background: var(--electric); box-shadow: 0 0 0 3px rgba(255, 255, 255, .95), 0 0 14px 2px rgba(47, 107, 255, .7); }
-.hs-dot::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid rgba(47, 107, 255, .55); animation: me-pulse 2.2s ease-out infinite; }
-.car-hotspot:hover .hs-card, .car-hotspot:focus-visible .hs-card { transform: translateY(-4px); box-shadow: 0 16px 32px -14px rgba(30, 95, 217, .55); }
-@keyframes hs-in { from { opacity: 0; transform: translate(-50%, calc(-100% + 12px)); } to { opacity: 1; transform: translate(-50%, -100%); } }
 .fleet-chip { position: absolute; z-index: 6; display: flex; align-items: center; gap: 10px; padding: 10px 16px 10px 12px; border-radius: 18px; max-width: 230px; background: rgba(255, 255, 255, .74); border: 1px solid rgba(255, 255, 255, .95); -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%); box-shadow: 0 18px 36px -20px rgba(11, 21, 48, .45); opacity: 0; animation: rd-fade .8s var(--ease) 2.6s forwards; }
 .fleet-chip .ic { width: 36px; height: 36px; flex: none; border-radius: 12px; display: grid; place-items: center; background: #fff; box-shadow: 0 0 0 1px rgba(47, 107, 255, .12), 0 4px 12px -4px rgba(47, 107, 255, .35); }
 .fleet-chip b { display: block; font-size: 13px; color: var(--navy); }
@@ -456,8 +445,4 @@ table.table { width: 100%; border-collapse: collapse; background: #fff; }
 .fleet-chip.chip-b { left: -1%; bottom: calc(3% + 66px); animation-delay: 2.9s; }
 @media (max-width: 900px) {
   .fleet-chip { display: none; }
-  .hs-card { padding: 5px 10px; }
-  .hs-card b { font-size: 11px; }
-  .hs-card small { font-size: 10px; }
-  .hs-line { height: 10px; }
 }

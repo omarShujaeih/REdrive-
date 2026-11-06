@@ -13,7 +13,6 @@ export default function Home() {
   const [end, setEnd] = useState(isoDay(Date.now() + 4 * 86400000));
   const suv = useLoad(() => api('/cars?city=ramallah&seats=5&sort=rating'));
   const eco = useLoad(() => api('/cars?city=nablus&sort=price'));
-  const fleet = useLoad(() => api('/cars'));
 
   const search = (e) => {
     e.preventDefault();
@@ -40,7 +39,7 @@ export default function Home() {
             </ul>
           </div>
           <div className="hero-stage">
-            <HeroFleet listings={fleet.data?.cars} />
+            <HeroFleet />
           </div>
         </div>
       </section>
