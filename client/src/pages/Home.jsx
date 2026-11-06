@@ -40,7 +40,6 @@ export default function Home() {
           </div>
           <div className="hero-stage">
             <HeroFleet />
-            <p className="photo-credit">صور: Alexander Migl و Alexander-93 · CC BY-SA 4.0</p>
           </div>
         </div>
       </section>

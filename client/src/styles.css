@@ -284,7 +284,6 @@ table.table { width: 100%; border-collapse: collapse; background: #fff; }
 .hero-proof small { display: block; font-size: var(--fs-6); color: var(--muted); }
 .proof-icon { width: 44px; height: 44px; border-radius: var(--radius); background: #fff; box-shadow: var(--shadow-sm); display: grid; place-items: center; flex: none; }
 .hero-stage { position: relative; margin-inline-end: calc(-1 * clamp(0px, 5vw, 96px)); }
-.photo-credit { position: absolute; bottom: -28px; left: 0; font-size: 11px; color: var(--muted); opacity: .75; direction: rtl; }
 
 /* The fleet: three real cut-out photos with their LEDs lit on top */
 .fleet { position: relative; width: 100%; aspect-ratio: 16 / 9; --px: 0; --py: 0; }
@@ -317,7 +316,6 @@ table.table { width: 100%; border-collapse: collapse; background: #fff; }
   .hero-copy { max-width: none; }
   .hero-stage { margin-inline: 0; }
   .fleet { aspect-ratio: 16 / 10; }
-  .photo-credit { bottom: -22px; }
 }
 @media (max-width: 600px) { .search-card .btn { flex: 1 1 100%; } }
 

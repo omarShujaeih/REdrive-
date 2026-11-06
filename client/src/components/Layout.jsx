@@ -92,7 +92,7 @@ function SiteFooter() {
       </div>
       <div className="container footer-bottom">
         <span>© 2026 Redrive · المنصة الفلسطينية لتأجير السيارات</span>
-        <span>صُنع في فلسطين</span>
+        <span>صور السيارات: Alexander Migl و Alexander-93، ويكيميديا كومنز · CC BY-SA 4.0</span>
       </div>
     </footer>
   );
