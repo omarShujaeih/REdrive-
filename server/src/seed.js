@@ -53,11 +53,11 @@ export async function seed() {
     { ...base, company: sahel._id, brand: 'Nissan', model: 'X-Trail', photos: ['/uploads/seed/nissan-xtrail.webp'], year: 2021, transmission: 'automatic', fuel: 'petrol', seats: 7, city: 'hebron', dailyPrice: 240, plateNumber: '8-2222-95', pickupLocation: loc(sahel), features: ['حساسات ركن'] },
     { ...base, status: 'pending', company: najma._id, brand: 'Toyota', model: 'RAV4', photos: ['/uploads/seed/toyota-rav4.webp'], year: 2024, transmission: 'automatic', fuel: 'hybrid', seats: 5, city: 'ramallah', dailyPrice: 280, aiSuggestedPrice: 270, plateNumber: '6-5234-95', pickupLocation: loc(najma), features: [] },
   ]);
-  const [explorer, tucson, corolla] = cars;
+  const [explorer, tucson, corolla, , sportage, octavia] = cars;
 
   let codeSeq = 4381;
   const mk = async (data, payStatus) => {
-    const days = Math.round((data.endDate - data.startDate) / DAY);
+    const days = Math.max(1, Math.ceil((data.endDate - data.startDate) / DAY)); // every started 24h is a day
     const r = await Rental.create({
       code: `RD-26-${String(codeSeq++).padStart(6, '0')}`,
       days, dailyPrice: data.car.dailyPrice, total: days * data.car.dailyPrice,
@@ -75,6 +75,11 @@ export async function seed() {
   await mk({ renter: layan._id, car: tucson, startDate: at10(0), endDate: at10(2), status: 'confirmed', acceptedAt: new Date(Date.now() - 2 * DAY) }, 'held');
   const done = await mk({ renter: layan._id, car: corolla, startDate: at10(-12), endDate: at10(-9), status: 'completed', acceptedAt: at10(-14), pickupConfirmedAt: at10(-12), returnConfirmedAt: at10(-9), renterReviewed: true, companyReviewed: true }, 'transferred');
   await mk({ renter: omar._id, car: explorer, startDate: at10(-25), endDate: at10(-21), status: 'completed', acceptedAt: at10(-27), pickupConfirmedAt: at10(-25), returnConfirmedAt: at10(-21) }, 'transferred');
+  // In progress now: Omar has the Sportage until the day after tomorrow (try an extension request),
+  // and Layan's Octavia was due back 3 hours ago (the company can record a late return).
+  await mk({ renter: omar._id, car: sportage, startDate: at10(-1), endDate: at10(2), status: 'active', acceptedAt: at10(-2), pickupConfirmedAt: at10(-1), termsAcceptedAt: at10(-2), termsVersion: '2026-11' }, 'transferred');
+  const overdueEnd = new Date(Date.now() - 3 * 3600000);
+  await mk({ renter: layan._id, car: octavia, startDate: new Date(overdueEnd.getTime() - 2 * DAY), endDate: overdueEnd, status: 'active', acceptedAt: new Date(overdueEnd.getTime() - 3 * DAY), pickupConfirmedAt: new Date(overdueEnd.getTime() - 2 * DAY), termsAcceptedAt: new Date(overdueEnd.getTime() - 3 * DAY), termsVersion: '2026-11' }, 'transferred');
 
   await Review.create([
     { rental: done._id, author: layan._id, targetType: 'company', targetUser: najma._id, stars: 5, comment: 'تعامل محترم، والسيارة كانت جاهزة ونظيفة قبل الموعد.' },

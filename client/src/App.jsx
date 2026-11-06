@@ -14,6 +14,7 @@ import Favorites from './pages/Favorites.jsx';
 import Notifications from './pages/Notifications.jsx';
 import Profile from './pages/Profile.jsx';
 import Assistant from './pages/Assistant.jsx';
+import Terms from './pages/Terms.jsx';
 import CompanyProfile from './pages/CompanyProfile.jsx';
 import CoDashboard from './pages/company/Dashboard.jsx';
 import CoCars from './pages/company/Cars.jsx';
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="cars/:id" element={<CarDetails />} />
             <Route path="companies/:id" element={<CompanyProfile />} />
             <Route path="assistant" element={<Assistant />} />
+            <Route path="terms" element={<Terms />} />
             <Route path="checkout/:carId" element={<RequireAuth roles={['renter']}><Checkout /></RequireAuth>} />
             <Route path="rentals" element={<RequireAuth roles={['renter']}><MyRentals /></RequireAuth>} />
             <Route path="rentals/:id" element={<RequireAuth roles={['renter']}><RentalDetails /></RequireAuth>} />

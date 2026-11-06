@@ -4,7 +4,7 @@ import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import Calendar from '../components/Calendar.jsx';
 import { Badge, CarImage, ErrorBox, Loading, Stars, useLoad } from '../components/ui.jsx';
-import { CITIES, FUEL, TRANSMISSION, daysWord, isoDay, money, fmtDate } from '../labels.js';
+import { CITIES, FUEL, HOURS, TRANSMISSION, countDays, daysWord, isoDay, money, fmtDate } from '../labels.js';
 
 export function bookedDays(bookings, statuses = ['confirmed', 'active']) {
   const set = new Set();
@@ -20,8 +20,11 @@ export default function CarDetails() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data, loading, error } = useLoad(() => api(`/cars/${id}`), [id]);
-  const [start, setStart] = useState(params.get('start') || '');
-  const [end, setEnd] = useState(params.get('end') || '');
+  // Links may carry "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm"; the calendar works on days, the time is picked separately.
+  const [start, setStart] = useState((params.get('start') || '').slice(0, 10));
+  const [end, setEnd] = useState((params.get('end') || '').slice(0, 10));
+  const [startTime, setStartTime] = useState((params.get('start') || '').slice(11, 16) || '10:00');
+  const [endTime, setEndTime] = useState((params.get('end') || '').slice(11, 16) || '10:00');
   const [fav, setFav] = useState(null);
 
   if (loading) return <Loading />;
@@ -32,7 +35,13 @@ export default function CarDetails() {
   const blocked = new Set(car.blockedDates.map(isoDay));
   const from = isoDay(car.availableFrom); const to = isoDay(car.availableTo); const today = isoDay(Date.now());
   const unavailable = (k) => k < today || k < from || k > to || booked.has(k) || blocked.has(k);
-  const days = start && end ? Math.round((new Date(end) - new Date(start)) / 86400000) : 0;
+  const pickupAt = start ? new Date(`${start}T${startTime}:00`) : null;
+  const returnAt = end ? new Date(`${end}T${endTime}:00`) : null;
+  const tooSoon = pickupAt && pickupAt < new Date();
+  const days = pickupAt && returnAt && returnAt > pickupAt && !tooSoon ? countDays(pickupAt, returnAt) : 0;
+  // Today only offers hours that have not passed yet.
+  const nowHour = new Date().getHours();
+  const pickupHours = start === today ? HOURS.filter((h) => Number(h.slice(0, 2)) > nowHour) : HOURS;
 
   const pick = (k) => {
     if (!start || end || k <= start) { setStart(k); setEnd(''); return; }
@@ -100,7 +109,7 @@ export default function CarDetails() {
           <section className="card col">
             <h3>مكان الاستلام والتسليم</h3>
             <span>{car.pickupLocation?.address}</span>
-            <span className="muted small">بتستلم السيارة وبترجّعها على نفس الفرع الساعة 10:00 صباحاً.</span>
+            <span className="muted small">بتستلم السيارة وبترجّعها على نفس الفرع، بالساعة اللي بتختارها وقت الحجز.</span>
           </section>
 
           <section className="card col">
@@ -121,16 +130,30 @@ export default function CarDetails() {
             <div className="card soft" style={{ padding: 10 }}><span className="muted small">الاستلام</span><div className="bold small">{start ? fmtDate(start) : 'اختار من التقويم'}</div></div>
             <div className="card soft" style={{ padding: 10 }}><span className="muted small">التسليم</span><div className="bold small">{end ? fmtDate(end) : '—'}</div></div>
           </div>
+          <div className="time-row">
+            <label className="field"><span className="small bold">ساعة الاستلام</span>
+              <select className="input" value={startTime} onChange={(e) => setStartTime(e.target.value)} disabled={!start}>
+                {(pickupHours.includes(startTime) ? pickupHours : [startTime, ...pickupHours]).map((h) => <option key={h} value={h}>{h}</option>)}
+              </select>
+            </label>
+            <label className="field"><span className="small bold">ساعة التسليم</span>
+              <select className="input" value={endTime} onChange={(e) => setEndTime(e.target.value)} disabled={!end}>
+                {HOURS.map((h) => <option key={h} value={h}>{h}</option>)}
+              </select>
+            </label>
+          </div>
+          {tooSoon && <div className="alert amber small">ساعة الاستلام فاتت. اختار ساعة بعد الساعة هلأ.</div>}
           {days > 0 && (
             <>
               <div className="row between"><span>{money(car.dailyPrice)} × {daysWord(days)}</span><span>{money(car.dailyPrice * days)}</span></div>
               <div className="row between bold" style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }}><span>المجموع</span><span>{money(car.dailyPrice * days)}</span></div>
+              <span className="muted small">كل 24 ساعة من ساعة الاستلام بتنحسب يوم، وأي جزء من يوم بينحسب يوم كامل.</span>
             </>
           )}
           {user?.role === 'company' || user?.role === 'admin' ? <div className="alert">الحجز متاح لحسابات المستأجرين بس.</div> : (
-            <button type="button" className="btn block" disabled={!days} onClick={() => navigate(`/checkout/${car._id}?start=${start}&end=${end}`)}>اطلب الحجز</button>
+            <button type="button" className="btn block" disabled={!days} onClick={() => navigate(`/checkout/${car._id}?start=${start}T${startTime}&end=${end}T${endTime}`)}>اطلب الحجز</button>
           )}
-          {!days && <span className="muted small">اختار يوم التسليم من التقويم عشان نحسبلك المجموع.</span>}
+          {!end && <span className="muted small">اختار يوم التسليم من التقويم عشان نحسبلك المجموع.</span>}
           <span className="muted small">بتدفع المبلغ كامل أونلاين، وبيضل محجوز لحد ما الشركة توافق. إذا رفضت أو ما ردّت خلال 12 ساعة، بترجعلك المصاري كاملة.</span>
         </aside>
       </div>

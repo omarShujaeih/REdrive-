@@ -58,3 +58,30 @@ export const carCategory = (c) => {
   if (c.dailyPrice >= 240) return 'فاخرة';
   return 'مريحة';
 };
+
+// Booking times: every started 24h counts as a day (same rule as the API).
+export const countDays = (start, end) => Math.max(1, Math.ceil((new Date(end) - new Date(start)) / 86400000));
+export const fmtTime = (d) => new Date(d).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+// Pick-up and return hours offered in the booking forms.
+export const HOURS = Array.from({ length: 16 }, (_, i) => `${String(i + 7).padStart(2, '0')}:00`);
+// "YYYY-MM-DDTHH:mm" in local time, for datetime-local inputs and booking links.
+export const localStamp = (d) => {
+  const x = new Date(d);
+  return `${isoDay(x)}T${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}`;
+};
+// Booking links carry "YYYY-MM-DDTHH:mm"; older links carry only the day (10:00 then).
+export const parseStamp = (v) => (v ? new Date(v.includes('T') ? v : `${v}T10:00:00`) : null);
+const unit = (n, one, two, few, many) => (n === 1 ? one : n === 2 ? two : n <= 10 ? `${n} ${few}` : `${n} ${many}`);
+export const lateText = (minutes) => {
+  const h = Math.floor(minutes / 60); const m = minutes % 60;
+  const hours = unit(h, "ساعة", "ساعتين", "ساعات", "ساعة");
+  const mins = unit(m, "دقيقة", "دقيقتين", "دقائق", "دقيقة");
+  return h ? `${hours}${m ? ` و${mins}` : ""}` : mins;
+};
+export const extraDaysText = (n) => unit(n, "يوم إضافي", "يومين إضافيين", "أيام إضافية", "يوم إضافي");
+export const EXTENSION_STATUS = {
+  pending: { label: 'بستنى رد الشركة', tone: 'amber' },
+  approved: { label: 'انقبل', tone: 'green' },
+  rejected: { label: 'انرفض', tone: 'red' },
+  expired: { label: 'انتهى بدون رد', tone: '' },
+};

@@ -29,6 +29,10 @@ export const rules = {
   freeCancelHoursAfterAccept: 6,
   lateCancelChargeRate: 0.60, // retained from the renter on late cancellation / no-show
   noShowGraceHours: 2,
+  lateGraceHours: 1, // returning later than this costs a full day per started 24h of lateness
+  extensionMinHoursBefore: 12, // extension requests close this many hours before the return time
+  termsVersion: '2026-11', // bump when the rental terms text changes
+
   maxFailedLogins: 5,
   lockMinutes: 15,
   codeMinutes: 15,

@@ -4,11 +4,13 @@ import { api } from '../../api.js';
 import { useAuth } from '../../auth.jsx';
 import { PageTitle } from '../../components/Layout.jsx';
 import { Badge, Empty, ErrorBox, Field, Loading, Stars, useLoad } from '../../components/ui.jsx';
-import { carName, daysWord, fmtDate, money, timeLeft } from '../../labels.js';
+import { carName, daysWord, fmtDate, fmtDateTime, money, timeLeft } from '../../labels.js';
 
 export default function Requests() {
   const { setToast } = useAuth();
   const { data, loading, reload } = useLoad(() => api('/rentals/mine?status=pending'));
+  const active = useLoad(() => api('/rentals/mine?status=active'));
+  const extensionRequests = (active.data?.rentals || []).flatMap((r) => (r.extensions || []).filter((e) => e.status === 'pending').map((e) => ({ rental: r, ext: e })));
   const [rejecting, setRejecting] = useState(null);
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
@@ -28,6 +30,20 @@ export default function Requests() {
     <>
       <PageTitle title="طلبات الإيجار" sub="شوف ملف كل زبون قبل ما تقرر. رد خلال 12 ساعة، وإلا الطلب بينرفض تلقائياً وبيرجع المبلغ للزبون." />
       <ErrorBox error={error} />
+      {extensionRequests.length > 0 && (
+        <section className="col" style={{ marginBottom: 24 }}>
+          <h2>طلبات تمديد</h2>
+          {extensionRequests.map(({ rental: r, ext }) => (
+            <div key={ext._id} className="card row between">
+              <div className="col" style={{ gap: 2 }}>
+                <b>{r.renter.name} · {carName(r.car)}</b>
+                <span className="small">لحد {fmtDateTime(ext.requestedEnd)} بدل {fmtDateTime(ext.previousEnd)} · {daysWord(ext.extraDays)} · {money(ext.amount)} مدفوعين</span>
+              </div>
+              <div className="row"><Badge tone="amber">{timeLeft(ext.respondBy)}</Badge><Link className="btn sm" to={`/company/rentals/${r._id}`}>رد على الطلب</Link></div>
+            </div>
+          ))}
+        </section>
+      )}
       {loading ? <Loading /> : list.length === 0 ? <Empty title="ما في طلبات جديدة" text="أي طلب جديد بيوصلك إشعار فيه." /> : (
         <div className="col">
           {list.map((r) => (

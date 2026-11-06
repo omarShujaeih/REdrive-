@@ -4,15 +4,16 @@ import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { ErrorBox, Field, Loading, useLoad } from '../components/ui.jsx';
 import StripePay from '../components/StripePay.jsx';
-import { FUEL, TRANSMISSION, carName, daysWord, fmtDateTime, money } from '../labels.js';
-
-const at10 = (day) => { const d = new Date(`${day}T10:00:00`); return d; };
+import { TermsModal, usePolicies } from '../components/Policies.jsx';
+import { FUEL, TRANSMISSION, carName, countDays, daysWord, fmtDateTime, money, parseStamp } from '../labels.js';
 
 export default function Checkout() {
   const { carId } = useParams();
   const [params] = useSearchParams();
   const { user } = useAuth();
-  const start = at10(params.get('start')); const end = at10(params.get('end'));
+  const policies = usePolicies();
+  const [showTerms, setShowTerms] = useState(false);
+  const start = parseStamp(params.get('start')); const end = parseStamp(params.get('end'));
   const { data, loading, error } = useLoad(() => Promise.all([api(`/cars/${carId}`), api('/rentals/payment-mode')]).then(([c, m]) => ({ ...c, mode: m.mode })), [carId]);
   const [step, setStep] = useState(1);
   const [agree, setAgree] = useState(false);
@@ -25,7 +26,7 @@ export default function Checkout() {
   if (loading) return <Loading />;
   if (error) return <main className="container"><ErrorBox error={error} /></main>;
   const { car } = data;
-  const days = Math.round((end - start) / 86400000);
+  const days = countDays(start, end);
   const total = days * car.dailyPrice;
   const verified = user.status === 'verified';
 
@@ -64,13 +65,15 @@ export default function Checkout() {
                 <div><span className="muted small">المكان</span><div className="bold">{car.pickupLocation?.address}</div></div>
                 <div><span className="muted small">المدة</span><div className="bold">{daysWord(days)}</div></div>
               </div>
-              <label className="row" style={{ alignItems: 'flex-start', flexWrap: 'nowrap' }}>
-                <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} style={{ marginTop: 6 }} />
-                <span>بوافق على شروط الإيجار: الإلغاء مجاني قبل موافقة الشركة ولأول 6 ساعات بعدها، وبعدها بينخصم 60%. وبوقّع عقد الإيجار عند الشركة وقت الاستلام.</span>
-              </label>
-              <button type="button" className="btn" disabled={!agree || !verified} onClick={() => setStep(2)}>كمّل للدفع</button>
+              <div className="alert small">
+                الاستلام والتسليم بالساعة اللي اخترتها. في ساعة سماح بالتسليم، وبعدها كل 24 ساعة تأخير بتنحسب يوم كامل.
+                وبتقدر تطلب تمديد بعد الاستلام، قبل موعد التسليم بـ{policies.extensionMinHoursBefore} ساعة على الأقل.
+              </div>
+              <button type="button" className="btn" disabled={!verified} onClick={() => (agree ? setStep(2) : setShowTerms(true))}>كمّل للدفع</button>
+              <span className="muted small">قبل الدفع بتقرأ <Link to="/terms" target="_blank" rel="noreferrer">الشروط والسياسات</Link> وبتوافق عليها.</span>
             </div>
           )}
+          {showTerms && <TermsModal onClose={() => setShowTerms(false)} onAccept={() => { setAgree(true); setShowTerms(false); setStep(2); }} />}
           {step === 2 && (
             data.mode === 'stripe' ? (
               <div className="card col">
@@ -117,7 +120,8 @@ export default function Checkout() {
           <span className="small">{car.company.name}</span>
           <div className="row between"><span>{money(car.dailyPrice)} × {daysWord(days)}</span><span>{money(total)}</span></div>
           <div className="row between bold" style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }}><span>المجموع</span><span>{money(total)}</span></div>
-          <span className="muted small">إلغاء مجاني قبل موافقة الشركة، ولأول 6 ساعات بعد الموافقة. بعدها بينخصم 60% ({money(total * 0.6)}) وبيرجعلك {money(total * 0.4)}.</span>
+          <span className="muted small">إلغاء مجاني قبل موافقة الشركة، ولأول {policies.freeCancelHoursAfterAccept} ساعات بعد الموافقة. بعدها بينخصم {Math.round(policies.lateCancelChargeRate * 100)}% ({money(total * policies.lateCancelChargeRate)}) وبيرجعلك {money(total * (1 - policies.lateCancelChargeRate))}.</span>
+          <span className="muted small">التأخير بالتسليم بعد ساعة السماح: {money(car.dailyPrice)} عن كل 24 ساعة أو جزء منها.</span>
         </aside>
       </div>
     </main>

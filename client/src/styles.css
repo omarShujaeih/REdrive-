@@ -550,3 +550,16 @@ input.input[type="date"]::-webkit-date-and-time-value { text-align: start; margi
   .main-nav .menu-logout { border: 0; background: none; font: inherit; font-size: var(--fs-4); color: var(--red); cursor: pointer; text-align: start; margin-top: 6px; border-top: 1px solid var(--line-soft); border-radius: 0; }
 }
 @media (max-width: 420px) { .hide-xs { display: none; } }
+
+/* Wide dialog (terms) and the terms text */
+.modal.wide { width: min(680px, 100%); }
+.terms { display: flex; flex-direction: column; gap: 18px; }
+.terms section { display: flex; flex-direction: column; gap: 6px; scroll-margin-top: 96px; }
+.terms h3 { display: flex; align-items: center; gap: 8px; font-size: var(--fs-4); color: var(--navy); }
+.terms h3 .n { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-size: var(--fs-6); color: #fff; background: var(--brand-grad); flex: none; }
+.terms p, .terms li { color: var(--ink-2); line-height: 1.75; }
+.terms ul { margin: 0; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 4px; }
+.terms-scroll { max-height: min(52vh, 460px); overflow: auto; padding: 4px 4px 4px 12px; border: 1px solid var(--line-soft); border-radius: var(--r-lg); padding: 16px; background: var(--surface); }
+.terms-page { max-width: 820px; padding-block: 32px 16px; }
+.time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.time-row select { height: var(--control-sm); font-size: var(--fs-5); }

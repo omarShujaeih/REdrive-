@@ -6,7 +6,8 @@ import { fileURLToPath } from 'node:url';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import { Server } from 'socket.io';
-import { config } from './config.js';
+import { config, rules } from './config.js';
+import Payment from './models/Payment.js';
 import { connectDb } from './services/db.js';
 import { setIo } from './services/notify.js';
 import { expirePendingRentals } from './services/rentalActions.js';
@@ -34,6 +35,15 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/chat', chatRoutes);
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
+// Public rental policy numbers, so the terms shown to renters always match the rules the API enforces.
+app.get('/api/policies', (req, res) => {
+  const {
+    responseHours, freeCancelHoursAfterAccept, lateCancelChargeRate, noShowGraceHours,
+    lateGraceHours, extensionMinHoursBefore, termsVersion,
+  } = rules;
+  res.json({ responseHours, freeCancelHoursAfterAccept, lateCancelChargeRate, noShowGraceHours, lateGraceHours, extensionMinHoursBefore, termsVersion });
+});
+
 // Production (e.g. the Render demo): serve the built React client from the same origin,
 // so /api and socket.io keep working with relative URLs. Unknown non-API paths get index.html.
 const clientDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../client/dist');
@@ -59,6 +69,9 @@ io.on('connection', (socket) => socket.join(String(socket.userId)));
 setIo(io);
 
 const inMemory = await connectDb();
+// Payments used to be unique per rental; extensions and late fees add more per rental,
+// so drop the old unique index on existing databases (Atlas) and create the new ones.
+await Payment.syncIndexes().catch((err) => console.error('[db] payment indexes:', err.message));
 if (inMemory) {
   const { seed } = await import('./seed.js');
   await seed();

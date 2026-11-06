@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import mongoose from 'mongoose';
 import Rental from '../models/Rental.js';
 import Car from '../models/Car.js';
 import Payment from '../models/Payment.js';
@@ -7,10 +8,13 @@ import User from '../models/User.js';
 import { auth, requireRole, requireVerified } from '../middleware/auth.js';
 import { wrap, httpError } from '../middleware/error.js';
 import { unavailableReason, countDays } from '../services/availability.js';
-import { createPaymentIntent, holdPayment, paymentMode, refundPaymentRef } from '../services/payment.js';
+import {
+  createPaymentIntent, holdPayment, holdExtra, recordDue, payDue, settle, paymentMode, refundPaymentRef,
+} from '../services/payment.js';
 import { notify } from '../services/notify.js';
 import {
   rejectRental, cancelByRenter, cancellationTerms, transferToCompany, refundFull,
+  lateTerms, extensionTerms, closeExtension,
 } from '../services/rentalActions.js';
 import { rules } from '../config.js';
 
@@ -42,6 +46,7 @@ async function loadBookableCar({ carId, startDate, endDate }) {
   const car = await Car.findById(carId).populate('company', 'status');
   if (!car || car.company.status !== 'verified') throw httpError(404, 'السيارة مش موجودة');
   const start = new Date(startDate); const end = new Date(endDate);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) throw httpError(400, 'اختار وقت الاستلام والتسليم');
   const reason = await unavailableReason(car, start, end);
   if (reason) throw httpError(409, reason);
   return { car, start, end, days: countDays(start, end) };
@@ -65,6 +70,7 @@ router.post('/', requireRole('renter'), requireVerified, wrap(async (req, res) =
     renter: req.user._id, company: car.company._id, car: car._id,
     startDate: start, endDate: end, days, dailyPrice: car.dailyPrice, total: days * car.dailyPrice,
     respondBy: new Date(Date.now() + rules.responseHours * 3600000),
+    termsAcceptedAt: new Date(), termsVersion: rules.termsVersion,
   });
   const payment = await holdPayment({ rental, card, paymentIntentId }); // throws 402 if declined → no rental is sent
   try {
@@ -91,12 +97,21 @@ router.get('/mine', wrap(async (req, res) => {
 
 router.get('/:id', wrap(async (req, res) => {
   const rental = await loadRental(req);
-  const [full, payment] = await Promise.all([
+  const [full, payments] = await Promise.all([
     populateAll(Rental.findById(rental._id)).lean(),
-    Payment.findOne({ rental: rental._id }).lean(),
+    Payment.find({ rental: rental._id }).sort('createdAt').lean(),
   ]);
+  const payment = payments.find((p) => !['extension', 'late_fee'].includes(p.kind)) || null;
   const terms = ['pending', 'confirmed'].includes(full.status) ? cancellationTerms(rental) : null;
-  res.json({ rental: full, payment, cancellation: terms, commissionRate: rules.commissionRate });
+  res.json({
+    rental: full,
+    payment,
+    extras: payments.filter((p) => ['extension', 'late_fee'].includes(p.kind)),
+    cancellation: terms,
+    extension: extensionTerms(rental),
+    late: full.status === 'active' ? lateTerms(rental) : null,
+    commissionRate: rules.commissionRate,
+  });
 }));
 
 // Company: accept → confirmed; overlapping pending requests are rejected automatically
@@ -179,13 +194,117 @@ router.post('/:id/no-show', requireRole('company'), wrap(async (req, res) => {
   res.json({ rental, payment });
 }));
 
+// Company confirms the car came back. The actual return time decides the late fee:
+// free within the grace period, then a full day for every started 24h of lateness.
 router.post('/:id/return', requireRole('company'), wrap(async (req, res) => {
   const rental = await loadRental(req, ['company']);
   if (rental.status !== 'active') throw httpError(409, 'الحجز مش جاري');
+  const returnedAt = req.body?.returnedAt ? new Date(req.body.returnedAt) : new Date();
+  if (Number.isNaN(returnedAt.getTime())) throw httpError(400, 'وقت الإرجاع مش صحيح');
+  if (returnedAt > new Date(Date.now() + 5 * 60000)) throw httpError(400, 'وقت الإرجاع ما بصير يكون بالمستقبل');
+  if (returnedAt < (rental.pickupConfirmedAt || rental.startDate)) throw httpError(400, 'وقت الإرجاع قبل وقت الاستلام');
+
+  for (const ext of rental.extensions.filter((e) => e.status === 'pending')) {
+    await closeExtension(rental, ext, { status: 'rejected', reason: 'السيارة رجعت قبل الرد على الطلب' });
+  }
+  const late = lateTerms(rental, returnedAt);
   rental.status = 'completed';
   rental.returnConfirmedAt = new Date();
+  rental.returnedAt = returnedAt;
+  rental.lateDays = late.lateDays;
+  rental.lateFee = late.fee;
   await rental.save();
-  await notify(rental.renter, { type: 'rental', link: `/rentals/${rental._id}`, title: 'خلصت رحلتك', body: 'قيّم الشركة والسيارة عشان تساعد باقي المستأجرين.' });
+  if (late.fee > 0) {
+    await recordDue({ rental, kind: 'late_fee', amount: late.fee });
+    await notify(rental.renter, {
+      type: 'rental', email: true, link: `/rentals/${rental._id}`,
+      title: 'عليك رسوم تأخير', body: `رجّعت السيارة متأخر، فانحسب ${late.lateDays === 1 ? 'يوم إضافي' : `${late.lateDays} أيام إضافية`} (₪${late.fee}). ادفعها من صفحة الحجز.`,
+    });
+  } else {
+    await notify(rental.renter, { type: 'rental', link: `/rentals/${rental._id}`, title: 'خلصت رحلتك', body: 'قيّم الشركة والسيارة عشان تساعد باقي المستأجرين.' });
+  }
+  res.json({ rental, late });
+}));
+
+// Renter pays a late-return fee that the company recorded on return.
+router.post('/:id/late-fee/pay', requireRole('renter'), wrap(async (req, res) => {
+  const rental = await loadRental(req, ['renter']);
+  const due = await Payment.findOne({ rental: rental._id, kind: 'late_fee', status: 'due' });
+  if (!due) throw httpError(409, 'ما في رسوم تأخير مستحقة');
+  const payment = await payDue(due, { card: req.body.card, paymentIntentId: req.body.paymentIntentId });
+  await notify(rental.company, {
+    type: 'rental', link: `/company/rentals/${rental._id}`,
+    title: `انْدفعت رسوم التأخير ${rental.code}`, body: `₪${payment.amount}، وانحوّل لحسابك ₪${payment.transferAmount} بعد العمولة.`,
+  });
+  res.json({ payment });
+}));
+
+// Renter asks to return the car later. The difference is paid now and held until the company decides.
+router.post('/:id/extensions', requireRole('renter'), wrap(async (req, res) => {
+  const rental = await loadRental(req, ['renter']);
+  const terms = extensionTerms(rental);
+  if (!terms.allowed) throw httpError(409, terms.reason);
+  const requestedEnd = new Date(req.body.endDate);
+  if (Number.isNaN(requestedEnd.getTime())) throw httpError(400, 'اختار موعد التسليم الجديد');
+  if (requestedEnd <= rental.endDate) throw httpError(400, 'الموعد الجديد لازم يكون بعد موعد التسليم الحالي');
+  const car = await Car.findById(rental.car);
+  const reason = await unavailableReason(car, rental.endDate, requestedEnd, rental._id);
+  if (reason) throw httpError(409, reason);
+
+  const extraDays = countDays(rental.endDate, requestedEnd);
+  const amount = extraDays * rental.dailyPrice;
+  const extensionId = new mongoose.Types.ObjectId();
+  const payment = await holdExtra({ rental, kind: 'extension', amount, extensionId, card: req.body.card, paymentIntentId: req.body.paymentIntentId });
+  rental.extensions.push({
+    _id: extensionId, previousEnd: rental.endDate, requestedEnd, extraDays, amount,
+    respondBy: new Date(Math.min(Date.now() + rules.responseHours * 3600000, rental.endDate.getTime())),
+  });
+  try {
+    await rental.save();
+  } catch (err) {
+    await refundPaymentRef(payment.gatewayRef, payment.amount);
+    await payment.deleteOne();
+    throw err;
+  }
+  await notify(rental.company, {
+    type: 'rental', email: true, link: `/company/rentals/${rental._id}`,
+    title: `طلب تمديد ${rental.code}`, body: `${car.brand} ${car.model} · ${extraDays === 1 ? 'يوم إضافي' : `${extraDays} أيام إضافية`} (₪${amount}) · رد قبل موعد التسليم.`,
+  });
+  res.status(201).json({ rental, extension: rental.extensions.id(extensionId) });
+}));
+
+// Company approves an extension: the return time moves and the held difference is transferred.
+router.post('/:id/extensions/:extId/approve', requireRole('company'), wrap(async (req, res) => {
+  const rental = await loadRental(req, ['company']);
+  const ext = rental.extensions.id(req.params.extId);
+  if (!ext || ext.status !== 'pending') throw httpError(409, 'طلب التمديد مش قيد الانتظار');
+  if (rental.status !== 'active') throw httpError(409, 'الحجز مش جاري');
+  const car = await Car.findById(rental.car);
+  const reason = await unavailableReason(car, rental.endDate, ext.requestedEnd, rental._id);
+  if (reason) throw httpError(409, reason);
+  ext.status = 'approved';
+  ext.respondedAt = new Date();
+  rental.endDate = ext.requestedEnd;
+  rental.days += ext.extraDays;
+  rental.total += ext.amount;
+  await rental.save();
+  const payment = await settle(await Payment.findOne({ rental: rental._id, kind: 'extension', extension: ext._id }), 1);
+  await notify(rental.renter, {
+    type: 'rental', email: true, link: `/rentals/${rental._id}`,
+    title: 'الشركة وافقت على التمديد', body: `موعد التسليم الجديد ${ext.requestedEnd.toLocaleString('ar')}.`,
+  });
+  res.json({ rental, payment });
+}));
+
+router.post('/:id/extensions/:extId/reject', requireRole('company'), wrap(async (req, res) => {
+  const rental = await loadRental(req, ['company']);
+  const ext = rental.extensions.id(req.params.extId);
+  if (!ext || ext.status !== 'pending') throw httpError(409, 'طلب التمديد مش قيد الانتظار');
+  await closeExtension(rental, ext, { status: 'rejected', reason: req.body?.reason });
+  await notify(rental.renter, {
+    type: 'rental', email: true, link: `/rentals/${rental._id}`,
+    title: 'الشركة رفضت طلب التمديد', body: `${req.body?.reason ? `${req.body.reason} · ` : ''}رجعلك ₪${ext.amount}. موعد التسليم بضل زي ما هو.`,
+  });
   res.json({ rental });
 }));
 

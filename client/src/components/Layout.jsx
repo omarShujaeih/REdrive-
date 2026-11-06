@@ -74,12 +74,11 @@ function SiteHeader() {
   );
 }
 
-// Legal pages don't exist yet, so those entries are plain text until they do.
 const FOOTER = [
   { title: 'Redrive', links: [['/', 'عن المنصة'], ['/assistant', 'تواصل معنا'], ['/assistant', 'الأسئلة الشائعة']] },
   { title: 'للمستأجرين', links: [['/search', 'تصفّح السيارات'], ['/#how', 'كيف بتستأجر'], ['/register?role=renter', 'توثيق الحساب']] },
   { title: 'للشركات', links: [['/register?role=company', 'بوابة الشركات'], ['/login', 'دخول الشركات']] },
-  { title: 'قانوني', links: [[null, 'الشروط والأحكام'], [null, 'سياسة الخصوصية'], [null, 'سياسة الإلغاء']] },
+  { title: 'قانوني', links: [['/terms', 'الشروط والأحكام'], ['/terms#privacy', 'سياسة الخصوصية'], ['/terms#cancel', 'سياسة الإلغاء']] },
 ];
 
 function SiteFooter() {

@@ -24,7 +24,7 @@ export default function Finance() {
             {payments.map((p) => (
               <tr key={p._id}>
                 <td className="ltr">{p.rental?.code}</td>
-                <td>{p.rental?.car?.brand} {p.rental?.car?.model}</td>
+                <td>{p.rental?.car?.brand} {p.rental?.car?.model}{p.kind === 'extension' ? ' · تمديد' : p.kind === 'late_fee' ? ' · رسوم تأخير' : ''}</td>
                 <td>{money(p.amount - p.refundAmount)}</td>
                 <td>{p.status === 'held' ? '—' : `−${money(p.commission)}`}</td>
                 <td>{p.status === 'held' ? '—' : money(p.transferAmount)}</td>
