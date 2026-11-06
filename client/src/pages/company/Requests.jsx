@@ -4,7 +4,7 @@ import { api } from '../../api.js';
 import { useAuth } from '../../auth.jsx';
 import { PageTitle } from '../../components/Layout.jsx';
 import { Badge, Empty, ErrorBox, Field, Loading, Stars, useLoad } from '../../components/ui.jsx';
-import { carName, daysWord, fmtDate, fmtDateTime, money, timeLeft } from '../../labels.js';
+import { carName, daysWord, fmtDateTime, money, timeLeft } from '../../labels.js';
 
 export default function Requests() {
   const { setToast } = useAuth();
@@ -58,7 +58,7 @@ export default function Requests() {
                 </div>
                 <div className="col" style={{ gap: 0, alignItems: 'flex-end' }}><b style={{ fontSize: 20 }}>{money(r.total)}</b><span className="muted small ltr">{r.code}</span></div>
               </div>
-              <div className="row small"><span><b>السيارة:</b> {carName(r.car)}</span><span><b>المدة:</b> {fmtDate(r.startDate)} ← {fmtDate(r.endDate)} ({daysWord(r.days)})</span><Badge tone="amber">{timeLeft(r.respondBy)}</Badge></div>
+              <div className="row small"><span><b>السيارة:</b> {carName(r.car)}</span><span><b>المدة:</b> {fmtDateTime(r.startDate)} ← {fmtDateTime(r.endDate)} ({daysWord(r.days)})</span><Badge tone="amber">{timeLeft(r.respondBy)}</Badge></div>
               {overlaps(r) && <div className="alert amber small">تواريخ هالطلب بتتقاطع مع طلب ثاني على نفس السيارة. إذا قبلت واحد، التاني بينرفض تلقائياً.</div>}
               {rejecting === r._id ? (
                 <div className="col">

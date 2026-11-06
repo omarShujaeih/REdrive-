@@ -6,7 +6,7 @@ import Calendar from '../../components/Calendar.jsx';
 import { PageTitle } from '../../components/Layout.jsx';
 import { ErrorBox, Field, Loading, StatusBadge } from '../../components/ui.jsx';
 import { bookedDays } from '../CarDetails.jsx';
-import { BRANDS, CAR_STATUS, CITIES, FEATURES, FUEL, TRANSMISSION, isoDay, money, fmtDate } from '../../labels.js';
+import { BRANDS, CAR_STATUS, CITIES, FEATURES, FUEL, TRANSMISSION, isoDay, money, fmtDateTime } from '../../labels.js';
 
 const EMPTY = {
   brand: '', model: '', year: '2023', transmission: 'automatic', fuel: 'petrol', seats: '5', city: 'ramallah',
@@ -137,7 +137,7 @@ export default function CarForm() {
           {bookings.length > 0 && (
             <div className="col" style={{ gap: 6 }}>
               <b className="small">حجوزات هالسيارة</b>
-              {bookings.map((b) => <Link key={b._id} to={`/company/rentals/${b._id}`} className="small">{fmtDate(b.startDate)} ← {fmtDate(b.endDate)} · {b.renter?.name} · <span className="ltr">{b.code}</span></Link>)}
+              {bookings.map((b) => <Link key={b._id} to={`/company/rentals/${b._id}`} className="small">{fmtDateTime(b.startDate)} ← {fmtDateTime(b.endDate)} · {b.renter?.name} · <span className="ltr">{b.code}</span></Link>)}
             </div>
           )}
         </section>
