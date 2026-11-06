@@ -115,11 +115,6 @@ export default function Login() {
             <span className="eyebrow"><i aria-hidden="true" />Redrive</span>
             <h2>المنصة الفلسطينية لتأجير السيارات</h2>
             <p>سيارات من شركات مرخّصة في رام الله، نابلس، الخليل، بيت لحم وجنين. احجز بالتواريخ اللي بتناسبك وادفع أونلاين.</p>
-            <ul className="hero-proof">
-              {[['shield', 'شركات مرخّصة'], ['card', 'دفع آمن أونلاين'], ['star', 'تقييمات من الطرفين']].map(([icon, t]) => (
-                <li key={t}><span className="proof-icon"><Icon name={icon} size={20} color="var(--blue)" /></span><b>{t}</b></li>
-              ))}
-            </ul>
           </div>
           <span className="auth-floor" aria-hidden="true" />
           <div className="auth-car" style={{ '--d': '0.5s' }}>

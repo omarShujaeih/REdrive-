@@ -428,9 +428,6 @@ table.table { width: 100%; border-collapse: collapse; background: #fff; }
 .auth-visual-copy { position: relative; z-index: 1; margin: 12px; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
 .auth-visual-copy h2 { font-size: clamp(24px, 2.4vw, 32px); letter-spacing: -.01em; }
 .auth-visual-copy p { color: var(--muted); max-width: 46ch; }
-.auth-visual-copy .hero-proof { margin-top: 4px; gap: 12px 20px; }
-.auth-visual-copy .hero-proof b { font-size: var(--fs-6); }
-.auth-visual-copy .proof-icon { width: 36px; height: 36px; border-radius: 10px; }
 .auth-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-block: 20px; border-top: 1px solid var(--line-soft); color: var(--muted); font-size: var(--fs-6); }
 @media (max-width: 900px) {
   .auth-main { grid-template-columns: 1fr; }
@@ -492,9 +489,6 @@ table.table { width: 100%; border-collapse: collapse; background: #fff; }
 .auth-visual.navy::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background-image: linear-gradient(rgba(255, 255, 255, .045) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .045) 1px, transparent 1px); background-size: 44px 44px; -webkit-mask-image: radial-gradient(80% 70% at 50% 30%, #000, transparent); mask-image: radial-gradient(80% 70% at 50% 30%, #000, transparent); }
 .auth-visual.navy .auth-visual-copy h2 { color: #fff; }
 .auth-visual.navy .auth-visual-copy p { color: rgba(255, 255, 255, .7); }
-.auth-visual.navy .hero-proof b { color: #fff; }
-.auth-visual.navy .proof-icon { background: rgba(47, 107, 255, .16); box-shadow: inset 0 0 0 1px rgba(143, 180, 255, .3); }
-.auth-visual.navy .proof-icon svg { stroke: #A9C4FF; }
 .auth-visual.navy .eyebrow { background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .14); color: #fff; box-shadow: none; }
 .auth-floor { position: absolute; left: -10%; right: -10%; bottom: 0; height: 34%; pointer-events: none; background: radial-gradient(50% 55% at 55% 60%, rgba(120, 160, 255, .28), rgba(120, 160, 255, 0) 70%); }
 .auth-floor::before { content: ''; position: absolute; left: 8%; right: 8%; top: 52%; height: 1px; background: linear-gradient(90deg, transparent, rgba(47, 107, 255, .9), transparent); box-shadow: 0 0 18px 2px rgba(47, 107, 255, .5); }
