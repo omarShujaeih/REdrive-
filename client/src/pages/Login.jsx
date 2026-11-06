@@ -132,6 +132,7 @@ export default function Login() {
 
       <footer className="container auth-foot">
         <span>© 2026 Redrive · المنصة الفلسطينية لتأجير السيارات</span>
+        <span>صورة السيارة: Alexander Migl، ويكيميديا كومنز · CC BY-SA 4.0</span>
         <span className="row" style={{ gap: 16 }}><Link to="/assistant">تواصل معنا</Link></span>
       </footer>
     </div>
