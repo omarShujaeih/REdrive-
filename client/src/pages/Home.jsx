@@ -32,11 +32,6 @@ export default function Home() {
               <Link to="/search" className="btn lg">تصفّح السيارات</Link>
               <a href="#how" className="btn secondary lg">كيف بتشتغل</a>
             </div>
-            <ul className="hero-proof">
-              {[['shield', 'شركات مرخّصة', 'موثّقة من الإدارة'], ['card', 'دفع آمن', 'أونلاين وبتسترجع'], ['star', 'تقييمات', 'من الطرفين']].map(([icon, t, s]) => (
-                <li key={t}><span className="proof-icon"><Icon name={icon} size={22} color="var(--blue)" /></span><span><b>{t}</b><small>{s}</small></span></li>
-              ))}
-            </ul>
           </div>
           <div className="hero-stage">
             <HeroFleet />

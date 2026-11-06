@@ -4,9 +4,14 @@ import { useAuth } from '../auth.jsx';
 import { Icon, Logo, Loading, useLoad } from './ui.jsx';
 import { api } from '../api.js';
 
-// Re-mounts on every route change so each page plays the enter animation.
+// Re-mounts on every route change so each page plays the enter animation,
+// and opens the new page at the top (unless the link points at an anchor like #how).
 function Page() {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
+  useEffect(() => {
+    if (hash) document.getElementById(hash.slice(1))?.scrollIntoView();
+    else window.scrollTo(0, 0);
+  }, [pathname, hash]);
   return <div className="page" key={pathname}><Outlet /></div>;
 }
 
@@ -98,9 +103,27 @@ function SiteFooter() {
   );
 }
 
+// Trust points scrolling in a strip above the header (moving rightward, as Arabic tickers do).
+// The list repeats so the loop is seamless; copies after the first are hidden from screen readers.
+const PERKS = [['shield', 'شركات مرخّصة وموثّقة من الإدارة'], ['card', 'دفع آمن أونلاين وبتسترجع فلوسك'], ['star', 'تقييمات من الطرفين']];
+
+function PerksTicker() {
+  const run = [...PERKS, ...PERKS, ...PERKS];
+  return (
+    <div className="ticker" role="region" aria-label="مزايا Redrive">
+      <ul className="ticker-track">
+        {[...run, ...run].map(([icon, text], i) => (
+          <li key={i} aria-hidden={i >= PERKS.length ? true : undefined}><Icon name={icon} size={16} color="#8FB4FF" />{text}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function PublicLayout() {
   return (
     <>
+      <PerksTicker />
       <SiteHeader />
       <Page />
       <SiteFooter />

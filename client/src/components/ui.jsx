@@ -25,9 +25,15 @@ export function LogoMark({ size = 40 }) {
   );
 }
 
+// Smooth scroll to the top of the page (instant when the viewer prefers reduced motion).
+function scrollToTop() {
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+}
+
 export function Logo({ to = '/', label = 'Redrive، الصفحة الرئيسية' }) {
   return (
-    <Link to={to} className="logo" aria-label={label}>
+    <Link to={to} className="logo" aria-label={label} onClick={scrollToTop}>
       <LogoMark />
       <b><span>Re</span>drive</b>
     </Link>

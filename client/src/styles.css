@@ -499,3 +499,25 @@ table.table { width: 100%; border-collapse: collapse; background: #fff; }
   .auth-visual.navy { min-height: 0; padding-bottom: 66%; }
   .auth-car { width: 92%; right: 4%; bottom: 6%; }
 }
+
+/* Perks ticker above the header: navy strip, moves rightward, pauses on hover */
+.ticker { position: relative; overflow: hidden; height: 38px; display: flex; align-items: center; background: var(--brand-grad); color: #fff; -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
+.ticker-track { list-style: none; margin: 0; padding: 0; display: flex; align-items: center; width: max-content; animation: ticker 40s linear infinite; }
+.ticker:hover .ticker-track { animation-play-state: paused; }
+.ticker li { display: inline-flex; align-items: center; gap: 8px; padding-inline: 28px; white-space: nowrap; font-size: var(--fs-6); font-weight: 500; color: rgba(255, 255, 255, .9); position: relative; }
+.ticker li::after { content: ''; position: absolute; inset-inline-end: 0; top: 50%; width: 4px; height: 4px; margin-top: -2px; border-radius: 50%; background: var(--electric); box-shadow: 0 0 8px rgba(47, 107, 255, .9); }
+@keyframes ticker { from { transform: translateX(0); } to { transform: translateX(50%); } }
+
+/* Small screens: search card as a grid (place full width, dates side by side, button full width) */
+@media (max-width: 900px) {
+  .search-card { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .search-card .field.grow { grid-column: 1 / -1; }
+  .search-card .btn { grid-column: 1 / -1; width: 100%; min-width: 0; }
+}
+@media (max-width: 480px) {
+  .search-card { grid-template-columns: 1fr; padding: 16px; }
+  .site-footer li a, .site-footer li span { min-height: 44px; }
+}
+@media (max-width: 900px) { .site-footer li a, .site-footer li span { min-height: 44px; } }
+/* Standalone small links on the login page keep a 44px tap height */
+.auth-form .field a.small, .auth-foot a { display: inline-flex; align-items: center; min-height: 44px; }
