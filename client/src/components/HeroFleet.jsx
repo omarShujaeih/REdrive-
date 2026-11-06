@@ -1,5 +1,4 @@
 import { useRef } from 'react';
-import { Icon } from './ui.jsx';
 import sportage from '../assets/hero/sportage.webp';
 import tucson from '../assets/hero/tucson.webp';
 import rav4 from '../assets/hero/rav4.webp';
@@ -101,14 +100,6 @@ export default function HeroFleet() {
           </div>
         </div>
       ))}
-      <div className="fleet-chip chip-a">
-        <span className="ic"><Icon name="clock" size={18} color="var(--electric)" /></span>
-        <span><b>رد خلال 12 ساعة</b><small>وإلا بيرجعلك المبلغ كامل</small></span>
-      </div>
-      <div className="fleet-chip chip-b">
-        <span className="ic"><Icon name="shield" size={18} color="var(--electric)" /></span>
-        <span><b>إلغاء مجاني</b><small>أول 6 ساعات بعد الموافقة</small></span>
-      </div>
     </div>
   );
 }
