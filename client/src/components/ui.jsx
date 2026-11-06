@@ -2,17 +2,35 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CITIES, FUEL, TRANSMISSION, money, carName } from '../labels.js';
 
-export function Logo({ light = false, to = '/' }) {
+export function Logo({ to = '/', label = 'Redrive، الصفحة الرئيسية' }) {
   return (
-    <Link to={to} className="logo" aria-label="Redrive" style={light ? { color: '#fff' } : undefined}>
-      <svg width="36" height="36" viewBox="0 0 100 100" aria-hidden="true">
+    <Link to={to} className="logo" aria-label={label}>
+      <svg width="40" height="40" viewBox="0 0 100 100" aria-hidden="true">
         <rect width="100" height="100" rx="24" fill="#1E5FD9" />
         <g fill="none" stroke="#fff" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round">
           <path d="M30 78 V22 H52 A14 14 0 0 1 52 50 H30" /><path d="M48 50 L74 80" />
         </g>
+        <path d="M52.5 55.5 L69.5 75" fill="none" stroke="#1E5FD9" strokeWidth="2.6" strokeLinecap="round" strokeDasharray="4.5 4.5" />
       </svg>
       <b><span>Re</span>drive</b>
     </Link>
+  );
+}
+
+// Line icons from the design (24px grid, 1.8 stroke). Decorative: pair them with a text label or aria-label.
+const ICONS = {
+  sparkle: <><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z" /><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" /></>,
+  heart: <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" />,
+  bell: <><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" /><path d="M10 20a2 2 0 0 0 4 0" /></>,
+  chevronRight: <path d="M9 6l6 6-6 6" />,
+  chevronLeft: <path d="M15 6l-6 6 6 6" />,
+};
+
+export function Icon({ name, size = 20, color = 'currentColor' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: 'none' }}>
+      {ICONS[name]}
+    </svg>
   );
 }
 

@@ -70,10 +70,10 @@ export default function Home() {
       </section>
 
       <section className="container">
-        <div className="card row between" style={{ background: 'var(--ink)', color: '#fff', borderColor: 'var(--ink)' }}>
+        <div className="card row between" style={{ background: 'var(--hero)', borderColor: 'transparent', borderRadius: 'var(--r-xl)', padding: 24 }}>
           <div className="col" style={{ gap: 4 }}>
             <h2>مساعد ذكي بجاوبك على أسئلتك</h2>
-            <span style={{ opacity: .8 }}>بساعدك تلاقي السيارة المناسبة وتكمل الحجز.</span>
+            <span className="muted">بساعدك تلاقي السيارة المناسبة وتكمل الحجز.</span>
           </div>
           <Link to="/assistant" className="btn">ابدأ محادثة</Link>
         </div>

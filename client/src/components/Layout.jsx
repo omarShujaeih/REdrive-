@@ -1,7 +1,13 @@
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth.jsx';
-import { Logo, Loading, useLoad } from './ui.jsx';
+import { Icon, Logo, Loading, useLoad } from './ui.jsx';
 import { api } from '../api.js';
+
+// Re-mounts on every route change so each page plays the enter animation.
+function Page() {
+  const { pathname } = useLocation();
+  return <div className="page" key={pathname}><Outlet /></div>;
+}
 
 export function PublicLayout() {
   const { user, unread, logout } = useAuth();
@@ -13,18 +19,20 @@ export function PublicLayout() {
         <div className="container">
           <Logo />
           <nav className="row" aria-label="القائمة الرئيسية" style={{ gap: 8 }}>
-            <Link to="/assistant" className="nav-link">✦ اسأل Redrive</Link>
+            <Link to="/assistant" className="nav-link"><Icon name="sparkle" color="var(--blue)" />اسأل Redrive</Link>
             {!user && <Link to="/login" className="nav-link">تسجيل الدخول</Link>}
             {user && home && <Link to={home} className="nav-link">لوحة التحكم</Link>}
             {user?.role === 'renter' && (
               <>
                 <Link to="/rentals" className="nav-link">حجوزاتي</Link>
-                <Link to="/favorites" className="nav-link" aria-label="المفضلة">♡</Link>
+                <Link to="/favorites" className="nav-link icon" aria-label="المفضلة"><Icon name="heart" /></Link>
               </>
             )}
             {user && (
               <>
-                <Link to="/notifications" className="nav-link" aria-label="الإشعارات">🔔{unread > 0 && <span className="dot">{unread}</span>}</Link>
+                <Link to="/notifications" className="nav-link icon" aria-label={unread > 0 ? `الإشعارات، ${unread} جداد` : 'الإشعارات'}>
+                  <Icon name="bell" size={22} />{unread > 0 && <span className="dot" aria-hidden="true">{unread}</span>}
+                </Link>
                 <Link to="/profile" className="avatar" aria-label="حسابي">{user.name[0]}</Link>
                 <button type="button" className="btn ghost sm" onClick={() => { logout(); navigate('/'); }}>خروج</button>
               </>
@@ -32,7 +40,7 @@ export function PublicLayout() {
           </nav>
         </div>
       </header>
-      <Outlet />
+      <Page />
       <footer className="footer">
         <div className="container row between">
           <span>© {new Date().getFullYear()} Redrive · المنصة الفلسطينية لتأجير السيارات</span>
@@ -57,12 +65,12 @@ function Side({ links, subtitle }) {
   const navigate = useNavigate();
   return (
     <aside className="side">
-      <Logo light to={user.role === 'admin' ? '/admin' : '/company'} />
+      <Logo to={user.role === 'admin' ? '/admin' : '/company'} label="Redrive، لوحة التحكم" />
       <div className="who">
         <span className="avatar">{user.name[0]}</span>
         <div className="col" style={{ gap: 0, minWidth: 0 }}>
-          <b style={{ color: '#fff', fontSize: 14 }}>{user.name}</b>
-          <span className="small" style={{ opacity: .7 }}>{subtitle}</span>
+          <b style={{ fontSize: 15, fontWeight: 600 }}>{user.name}</b>
+          <span className="small muted">{subtitle}</span>
         </div>
       </div>
       {links.map((l) => (
@@ -106,7 +114,7 @@ export function CompanyLayout() {
   return (
     <div className="portal">
       <Side links={links} subtitle="شركة موثّقة" />
-      <main><Outlet /></main>
+      <main><Page /></main>
     </div>
   );
 }
@@ -122,7 +130,7 @@ export function AdminLayout() {
   return (
     <div className="portal">
       <Side links={links} subtitle="مدير المنصة" />
-      <main><Outlet /></main>
+      <main><Page /></main>
     </div>
   );
 }

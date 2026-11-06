@@ -127,12 +127,13 @@ export default function CarForm() {
           </div>
           <div style={{ maxWidth: 420 }}>
             <Calendar
+              tone="company"
               dayClass={(k) => (booked.has(k) ? 'booked' : pending.has(k) ? 'pending' : blocked.includes(k) ? 'blocked' : '')}
               disabled={(k) => k < f.availableFrom || k > f.availableTo}
               onPick={toggleDay}
             />
           </div>
-          <div className="legend"><span><i style={{ background: 'var(--red-soft)' }} />محجوزة</span><span><i style={{ background: 'var(--amber-soft)' }} />طلب بيستنى ردّك</span><span><i style={{ background: '#E7EAF0' }} />مسكّرة من عندك</span></div>
+          <div className="legend company"><span><i className="booked" />محجوزة</span><span><i className="pending" />طلب بيستنى ردّك</span><span><i className="blocked" />مسكّرة من عندك</span></div>
           {bookings.length > 0 && (
             <div className="col" style={{ gap: 6 }}>
               <b className="small">حجوزات هالسيارة</b>

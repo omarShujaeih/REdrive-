@@ -94,7 +94,7 @@ export default function CarDetails() {
             <h3>الأيام المتاحة</h3>
             <span className="muted small">اختار يوم الاستلام، وبعدين يوم التسليم.</span>
             <Calendar dayClass={dayClass} disabled={(k) => unavailable(k) && !(start && !end && k > start)} onPick={pick} initial={start || undefined} />
-            <div className="legend"><span><i style={{ background: 'var(--blue)' }} />اختيارك</span><span><i style={{ background: 'var(--blue-soft)' }} />ضمن المدة</span><span><i style={{ background: 'var(--red-soft)' }} />محجوز</span><span><i style={{ background: '#E7EAF0' }} />مسكّر</span></div>
+            <div className="legend"><span><i className="sel" />اختيارك</span><span><i className="range" />ضمن المدة</span><span><i className="booked" />محجوز</span><span><i className="blocked" />مسكّر</span></div>
           </section>
 
           <section className="card col">
