@@ -39,7 +39,7 @@ export default function MapView({ cars, center, onSelectCompany }) {
         m.addListener('click', () => onSelectCompany?.(g));
         return m;
       });
-      if (center) new google.maps.Marker({ map, position: center, icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#1E5FD9', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 } });
+      if (center) new google.maps.Marker({ map, position: center, icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#1B2F5E', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 } });
     }).catch(() => setFailed(true));
     return () => markers.forEach((m) => m.setMap(null));
   }, [cars, center, onSelectCompany]);
