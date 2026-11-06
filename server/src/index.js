@@ -1,5 +1,8 @@
 import express from 'express';
+import fs from 'node:fs';
 import http from 'node:http';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import { Server } from 'socket.io';
@@ -30,6 +33,16 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/chat', chatRoutes);
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// Production (e.g. the Render demo): serve the built React client from the same origin,
+// so /api and socket.io keep working with relative URLs. Unknown non-API paths get index.html.
+const clientDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../client/dist');
+if (fs.existsSync(clientDist)) {
+  app.use('/assets', express.static(path.join(clientDist, 'assets'), { immutable: true, maxAge: '1y' }));
+  app.use(express.static(clientDist, { index: false }));
+  app.get(/^\/(?!api\/|uploads\/|socket\.io\/).*/, (req, res) => res.sendFile(path.join(clientDist, 'index.html')));
+}
+
 app.use(errorHandler);
 
 const server = http.createServer(app);
