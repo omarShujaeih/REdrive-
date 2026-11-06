@@ -60,12 +60,12 @@ export default function Home() {
       </section>
 
       {[
-        { title: 'الأعلى تقييماً في رام الله', sub: 'سيارات من شركات موثّقة، مرتبة حسب تقييم الزبائن.', q: suv, link: '/search?city=ramallah&sort=rating' },
-        { title: 'سيارات اقتصادية في نابلس', sub: 'أوفر الأسعار باليوم للمشاوير داخل المدينة وبينها.', q: eco, link: '/search?city=nablus&sort=price' },
+        { kicker: 'مختارات الزبائن', title: 'الأعلى تقييماً في رام الله', sub: 'سيارات من شركات موثّقة، مرتبة حسب تقييم الزبائن.', q: suv, link: '/search?city=ramallah&sort=rating' },
+        { kicker: 'أوفر الأسعار', title: 'سيارات اقتصادية في نابلس', sub: 'أوفر الأسعار باليوم للمشاوير داخل المدينة وبينها.', q: eco, link: '/search?city=nablus&sort=price' },
       ].map((s) => (
         <Reveal className="container home-block" key={s.title}>
           <div className="section-head rv">
-            <div><h2>{s.title}</h2><p>{s.sub}</p></div>
+            <div><span className="kicker">{s.kicker}</span><h2>{s.title}</h2><p>{s.sub}</p></div>
             <Link to={s.link} className="see-all">عرض الكل<Icon name="arrowLeft" size={18} /></Link>
           </div>
           {s.q.loading ? <Loading /> : (
@@ -77,7 +77,7 @@ export default function Home() {
       <Reveal className="band" id="how">
         <div className="container home-block">
           <div className="section-head rv">
-            <div><h2>كيف بتستأجر من Redrive</h2><p>لازم يكون حسابك موثّق بالهوية ورخصة السواقة قبل أول حجز.</p></div>
+            <div><span className="kicker">3 خطوات بسيطة</span><h2>كيف بتستأجر من Redrive</h2><p>لازم يكون حسابك موثّق بالهوية ورخصة السواقة قبل أول حجز.</p></div>
           </div>
           <ol className="steps-grid">
             {[
@@ -86,7 +86,7 @@ export default function Home() {
               ['key', 'استلم السيارة', 'لما الشركة توافق بيوصلك إشعار بتفاصيل الاستلام. بتوقّع عقد الإيجار عند الشركة وبتستلم السيارة.'],
             ].map(([icon, t, d], i) => (
               <li key={t} className="glass step rv" style={{ '--i': i + 1 }}>
-                <span className="step-icon"><Icon name={icon} size={24} color="var(--blue)" /></span>
+                <span className="step-icon"><Icon name={icon} size={24} color="#8FB4FF" /></span>
                 <span className="step-n">0{i + 1}</span>
                 <h3>{t}</h3>
                 <p>{d}</p>
@@ -125,18 +125,18 @@ export default function Home() {
             <div className="duo-body">
               <h2>اسأل Redrive</h2>
               <p>مساعد ذكي بجاوبك على أسئلتك، وبساعدك تلاقي السيارة المناسبة وتكمل الحجز.</p>
-              <Link to="/assistant" className="btn"><Icon name="chat" />ابدأ محادثة</Link>
+              <Link to="/assistant" className="btn inverse"><Icon name="chat" />ابدأ محادثة</Link>
             </div>
           </div>
         </div>
       </Reveal>
 
       <Reveal className="container home-block">
-        <div className="section-head rv"><div><h2>تأجير سيارات حسب المدينة</h2><p>اختار مدينتك وشوف السيارات المتاحة فيها.</p></div></div>
+        <div className="section-head rv"><div><span className="kicker">بكل فلسطين</span><h2>تأجير سيارات حسب المدينة</h2><p>اختار مدينتك وشوف السيارات المتاحة فيها.</p></div></div>
         <ul className="city-grid">
           {Object.entries(CITIES).map(([k, v], i) => (
             <li key={k} className="rv" style={{ '--i': i % 5 + 1 }}>
-              <Link to={`/search?city=${k}`} className="glass city"><Icon name="pin" size={20} color="var(--blue)" /><span>{v}</span><Icon name="arrowLeft" size={18} /></Link>
+              <Link to={`/search?city=${k}`} className="glass city"><span className="city-ic"><Icon name="pin" size={18} color="#FFFFFF" /></span><span>{v}</span><Icon name="arrowLeft" size={18} /></Link>
             </li>
           ))}
         </ul>
