@@ -1,4 +1,7 @@
 import { useRef } from 'react';
+import { Link } from 'react-router-dom';
+import { Icon } from './ui.jsx';
+import { money } from '../labels.js';
 import sportage from '../assets/hero/sportage.webp';
 import tucson from '../assets/hero/tucson.webp';
 import rav4 from '../assets/hero/rav4.webp';
@@ -9,20 +12,20 @@ import rav4 from '../assets/hero/rav4.webp';
 // The layer is screen-blended over the photo, so the lights switch on, blink and glow on the real lamps.
 const CARS = [
   {
-    key: 'tucson', src: tucson, w: 3562, h: 1782, slot: 'back-left', delay: 0.9,
+    key: 'tucson', name: 'هيونداي توسان', model: 'Tucson', tag: { top: '7%', left: '44%' }, src: tucson, w: 3562, h: 1782, slot: 'back-left', delay: 0.9,
     drl: ['M929 943 L1100 913', 'M887 1026 L1050 998', 'M867 1092 L992 1072', 'M854 1147 L933 1138', 'M1142 943 L1250 918 L1375 887'],
     lamps: [{ cx: 1258, cy: 1172, rx: 105, ry: 80 }, { cx: 150, cy: 1030, rx: 55, ry: 120, far: true }],
     width: 16,
   },
   {
-    key: 'sportage', src: sportage, w: 3583, h: 2099, slot: 'front', delay: 0.4,
+    key: 'sportage', name: 'كيا سبورتاج', model: 'Sportage', tag: { top: '30%', left: '52%' }, src: sportage, w: 3583, h: 2099, slot: 'front', delay: 0.4,
     drl: ['M1633 882 L1800 937 L1950 1003 L2042 1070 L2096 1132 L2067 1195 L1992 1287 L1900 1362 L1867 1377'],
     bars: ['M1692 1057 L1967 1049', 'M1696 1082 L1983 1074', 'M1700 1107 L2000 1099'],
     lamps: [{ cx: 1842, cy: 1095, rx: 200, ry: 80 }, { cx: 3490, cy: 1030, rx: 50, ry: 95, far: true }],
     width: 26,
   },
   {
-    key: 'rav4', src: rav4, w: 3445, h: 1879, slot: 'back-right', delay: 1.4,
+    key: 'rav4', name: 'تويوتا RAV4', model: 'RAV4', tag: { top: '6%', left: '40%' }, src: rav4, w: 3445, h: 1879, slot: 'back-right', delay: 1.4,
     drl: ['M1955 858 L1939 900 L1992 963', 'M1960 856 L2245 884 L2508 930'],
     lamps: [{ cx: 2192, cy: 953, rx: 160, ry: 70 }, { cx: 3320, cy: 870, rx: 45, ry: 60, far: true }],
     width: 16,
@@ -72,7 +75,7 @@ function Leds({ car }) {
   );
 }
 
-export default function HeroFleet() {
+export default function HeroFleet({ listings = [] }) {
   const ref = useRef(null);
   // Gentle depth parallax: the front car moves more than the two behind it.
   const onMove = (e) => {
@@ -88,18 +91,37 @@ export default function HeroFleet() {
       className="fleet"
       onPointerMove={onMove}
       onPointerLeave={() => { ref.current?.style.setProperty('--px', 0); ref.current?.style.setProperty('--py', 0); }}
-      role="img"
-      aria-label="كيا سبورتاج وهيونداي توسان وتويوتا RAV4 وأضويتها شغّالة"
     >
-      {CARS.map((car) => (
-        <div key={car.key} className={`fleet-car ${car.slot}`} style={{ '--d': `${car.delay}s` }}>
-          <div className="fleet-depth">
-            <img className="fleet-reflection" src={car.src} alt="" aria-hidden="true" />
-            <img className="fleet-photo" src={car.src} alt="" width={car.w} height={car.h} fetchPriority={car.slot === 'front' ? 'high' : 'auto'} />
-            <Leds car={car} />
+      <span className="fleet-word" aria-hidden="true">REDRIVE</span>
+      <span className="fleet-floor" aria-hidden="true" />
+      {CARS.map((car) => {
+        const listing = listings.find((c) => c.model === car.model);
+        return (
+          <div key={car.key} className={`fleet-car ${car.slot}`} style={{ '--d': `${car.delay}s` }}>
+            <div className="fleet-depth">
+              <img className="fleet-reflection" src={car.src} alt="" aria-hidden="true" />
+              <img className="fleet-photo" src={car.src} alt={`${car.name} وأضويتها شغّالة`} width={car.w} height={car.h} fetchPriority={car.slot === 'front' ? 'high' : 'auto'} />
+              <Leds car={car} />
+              <Link to={listing ? `/cars/${listing._id}` : `/search?q=${car.model}`} className="car-hotspot" style={car.tag}>
+                <span className="hs-card">
+                  <b>{car.name}</b>
+                  <small>{listing ? <>من <strong>{money(listing.dailyPrice)}</strong> / يوم</> : 'شوف التفاصيل'}</small>
+                </span>
+                <i className="hs-line" aria-hidden="true" />
+                <i className="hs-dot" aria-hidden="true" />
+              </Link>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
+      <div className="fleet-chip chip-a">
+        <span className="ic"><Icon name="clock" size={18} color="var(--electric)" /></span>
+        <span><b>رد خلال 12 ساعة</b><small>وإلا بيرجعلك المبلغ كامل</small></span>
+      </div>
+      <div className="fleet-chip chip-b">
+        <span className="ic"><Icon name="shield" size={18} color="var(--electric)" /></span>
+        <span><b>إلغاء مجاني</b><small>أول 6 ساعات بعد الموافقة</small></span>
+      </div>
     </div>
   );
 }

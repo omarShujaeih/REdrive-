@@ -1,17 +1,34 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CITIES, FUEL, TRANSMISSION, money, carName, carCategory } from '../labels.js';
+
+// Brand mark: midnight-navy tile with a soft top light, white R, and the road line on its leg
+// lit in electric blue like an LED strip. Wordmark: "Re" in electric blue, "drive" in midnight.
+export function LogoMark({ size = 40 }) {
+  const id = useId().replace(/:/g, '');
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" style={{ flex: 'none' }}>
+      <defs>
+        <linearGradient id={`${id}t`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#22376A" /><stop offset="1" stopColor="#0A1430" /></linearGradient>
+        <radialGradient id={`${id}l`} cx=".3" cy="0" r="1"><stop offset="0" stopColor="#FFFFFF" stopOpacity=".22" /><stop offset=".6" stopColor="#FFFFFF" stopOpacity="0" /></radialGradient>
+        <filter id={`${id}g`} x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.6" /></filter>
+      </defs>
+      <rect width="100" height="100" rx="24" fill={`url(#${id}t)`} />
+      <rect width="100" height="100" rx="24" fill={`url(#${id}l)`} />
+      <rect x="1" y="1" width="98" height="98" rx="23" fill="none" stroke="#FFFFFF" strokeOpacity=".14" strokeWidth="2" />
+      <g fill="none" stroke="#FFFFFF" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M30 78 V22 H52 A14 14 0 0 1 52 50 H30" /><path d="M48 50 L74 80" />
+      </g>
+      <path d="M52.5 55.5 L69.5 75" fill="none" stroke="#4C8DFF" strokeWidth="4" strokeLinecap="round" filter={`url(#${id}g)`} />
+      <path d="M52.5 55.5 L69.5 75" fill="none" stroke="#2F6BFF" strokeWidth="2.6" strokeLinecap="round" strokeDasharray="4.5 4.5" />
+    </svg>
+  );
+}
 
 export function Logo({ to = '/', label = 'Redrive، الصفحة الرئيسية' }) {
   return (
     <Link to={to} className="logo" aria-label={label}>
-      <svg width="40" height="40" viewBox="0 0 100 100" aria-hidden="true">
-        <rect width="100" height="100" rx="24" fill="#1E5FD9" />
-        <g fill="none" stroke="#fff" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M30 78 V22 H52 A14 14 0 0 1 52 50 H30" /><path d="M48 50 L74 80" />
-        </g>
-        <path d="M52.5 55.5 L69.5 75" fill="none" stroke="#1E5FD9" strokeWidth="2.6" strokeLinecap="round" strokeDasharray="4.5 4.5" />
-      </svg>
+      <LogoMark />
       <b><span>Re</span>drive</b>
     </Link>
   );
@@ -39,6 +56,7 @@ const ICONS = {
   key: <><circle cx="8" cy="15" r="4.5" /><path d="M11.2 11.8L20 3M16.5 6.5l2.5 2.5M14 9l2 2" /></>,
   chat: <><path d="M4 5.5h16v10H9l-5 4z" /><path d="M8 9.5h8M8 12.5h5" /></>,
   map: <><path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5z" /><path d="M9 4v13.5M15 6.5V20" /></>,
+  clock: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>,
   eye: <><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="3" /></>,
   eyeOff: <><path d="M4 4l16 16" /><path d="M9.9 5.8A9.7 9.7 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-3 3.8M6.3 7.6C3.9 9.4 2.5 12 2.5 12S6 18.5 12 18.5c1.5 0 2.9-.4 4.1-1" /><path d="M10 10a3 3 0 0 0 4 4" /></>,
   mail: <><rect x="3" y="5.5" width="18" height="13" rx="2.5" /><path d="M4 7l8 6 8-6" /></>,
