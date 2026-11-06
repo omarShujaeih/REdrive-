@@ -55,10 +55,11 @@ export async function seed() {
   ]);
   const [explorer, tucson, corolla] = cars;
 
+  let codeSeq = 4381;
   const mk = async (data, payStatus) => {
     const days = Math.round((data.endDate - data.startDate) / DAY);
     const r = await Rental.create({
-      code: `RD-26-${String(4000 + Math.floor(Math.random() * 999)).padStart(6, '0')}`,
+      code: `RD-26-${String(codeSeq++).padStart(6, '0')}`,
       days, dailyPrice: data.car.dailyPrice, total: days * data.car.dailyPrice,
       company: data.car.company, ...data, car: data.car._id,
     });
