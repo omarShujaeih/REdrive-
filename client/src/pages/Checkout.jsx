@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
-import { ErrorBox, Field, Loading, useLoad } from '../components/ui.jsx';
+import { CarImage, ErrorBox, Field, Icon, Loading, PageHead, Stepper, useLoad } from '../components/ui.jsx';
 import StripePay from '../components/StripePay.jsx';
 import { TermsModal, usePolicies } from '../components/Policies.jsx';
 import { FUEL, TRANSMISSION, carName, countDays, daysWord, fmtDateTime, money, parseStamp } from '../labels.js';
@@ -23,8 +23,8 @@ export default function Checkout() {
   const [busy, setBusy] = useState(false);
   const [rental, setRental] = useState(null);
 
-  if (loading) return <Loading />;
-  if (error) return <main className="container"><ErrorBox error={error} /></main>;
+  if (loading) return <Loading lines={4} />;
+  if (error) return <main className="container page-body"><ErrorBox error={error} /></main>;
   const { car } = data;
   const days = countDays(start, end);
   const total = days * car.dailyPrice;
@@ -50,79 +50,103 @@ export default function Checkout() {
     } finally { setBusy(false); }
   };
 
+  const head = step === 3
+    ? ['انبعت طلب الحجز', `طلبك وصل لـ${car.company.name}. رح يوصلك إشعار وإيميل أول ما الشركة ترد.`]
+    : ['راجع حجزك وادفع', 'تأكد من التفاصيل، وافق على الشروط، وادفع أونلاين بأمان.'];
+
   return (
-    <main className="container col" style={{ gap: 20 }}>
-      <div className="steps">{['مراجعة الطلب', 'الدفع', 'تم الإرسال'].map((s, i) => <span key={s} className={step === i + 1 ? 'on' : ''}>{i + 1}. {s}</span>)}</div>
-      <div className="split">
-        <div className="col">
-          {step === 1 && (
-            <div className="card col">
-              <h2>راجع طلب الحجز</h2>
-              {!verified && <div className="alert amber">حسابك لسا مش موثّق. بتقدر تطلب الحجز بس لما الإدارة توثّق هويتك ورخصة السواقة.</div>}
-              <div className="grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-                <div><span className="muted small">الاستلام</span><div className="bold">{fmtDateTime(start)}</div></div>
-                <div><span className="muted small">التسليم</span><div className="bold">{fmtDateTime(end)}</div></div>
-                <div><span className="muted small">المكان</span><div className="bold">{car.pickupLocation?.address}</div></div>
-                <div><span className="muted small">المدة</span><div className="bold">{daysWord(days)}</div></div>
-              </div>
-              <div className="alert small">
-                الاستلام والتسليم بالساعة اللي اخترتها. في ساعة سماح بالتسليم، وبعدها كل 24 ساعة تأخير بتنحسب يوم كامل.
-                وبتقدر تطلب تمديد بعد الاستلام، قبل موعد التسليم بـ{policies.extensionMinHoursBefore} ساعة على الأقل.
-              </div>
-              <button type="button" className="btn" disabled={!verified} onClick={() => (agree ? setStep(2) : setShowTerms(true))}>كمّل للدفع</button>
-              <span className="muted small">قبل الدفع بتقرأ <Link to="/terms" target="_blank" rel="noreferrer">الشروط والسياسات</Link> وبتوافق عليها.</span>
-            </div>
-          )}
-          {showTerms && <TermsModal onClose={() => setShowTerms(false)} onAccept={() => { setAgree(true); setShowTerms(false); setStep(2); }} />}
-          {step === 2 && (
-            data.mode === 'stripe' ? (
-              <div className="card col">
-                <h2>الدفع</h2>
-                <p className="muted">بتدفع المبلغ كامل هلأ، وبيضل محجوز لحد ما الشركة توافق. إذا رفضت، بيرجعلك كامل.</p>
-                <StripePay booking={{ carId, startDate: start, endDate: end, acceptTerms: agree }} total={total} onPaid={(r) => { setRental(r); setStep(3); }} />
-                <button type="button" className="btn ghost" onClick={() => setStep(1)}>رجوع لمراجعة الطلب</button>
-              </div>
-            ) : (
-            <form className="card col" onSubmit={pay} noValidate>
-              <h2>الدفع</h2>
-              <p className="muted">بتدفع المبلغ كامل هلأ، وبيضل محجوز عند بوابة الدفع لحد ما الشركة توافق. إذا رفضت، بيرجعلك كامل.</p>
-              <ErrorBox error={payError} />
-              <Field label="رقم البطاقة" error={errs.number}><input className="input ltr" inputMode="numeric" autoComplete="cc-number" value={card.number} onChange={(e) => setCard({ ...card, number: e.target.value })} placeholder="4242 4242 4242 4242" /></Field>
-              <Field label="الاسم على البطاقة" error={errs.name}><input className="input" autoComplete="cc-name" value={card.name} onChange={(e) => setCard({ ...card, name: e.target.value })} /></Field>
-              <div className="grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-                <Field label="تاريخ الانتهاء" error={errs.exp}><input className="input ltr" autoComplete="cc-exp" placeholder="MM/YY" value={card.exp} onChange={(e) => setCard({ ...card, exp: e.target.value })} /></Field>
-                <Field label="رمز الأمان (CVV)" error={errs.cvv}><input className="input ltr" inputMode="numeric" autoComplete="cc-csc" value={card.cvv} onChange={(e) => setCard({ ...card, cvv: e.target.value })} /></Field>
-              </div>
-              <span className="muted small">وضع التجربة (Sandbox): استعمل أي رقم تجريبي مثل 4242 4242 4242 4242. الرقم اللي بيخلص بـ 0002 بيترفض.</span>
-              <button className="btn" disabled={busy}>{busy ? 'عم نتأكد من الدفع…' : `ادفع ${money(total)}`}</button>
-              <button type="button" className="btn ghost" onClick={() => setStep(1)}>رجوع لمراجعة الطلب</button>
-            </form>
-            )
-          )}
-          {step === 3 && rental && (
-            <div className="card col">
-              <h2>انبعت طلب الحجز ✓</h2>
-              <p>الدفع تم، وطلبك وصل لـ{car.company.name}. رح يوصلك إشعار وإيميل أول ما الشركة ترد.</p>
-              <div className="row"><span className="muted">رقم الحجز</span><b className="ltr">{rental.code}</b><span className="badge amber">قيد الانتظار</span></div>
-              <ol className="timeline">
-                <li><span className="b on">1</span><div><b>الدفع تم</b><div className="muted small">{money(total)} محجوزين عند بوابة الدفع لحد ما الشركة توافق.</div></div></li>
-                <li><span className="b">2</span><div><b>بانتظار موافقة الشركة</b><div className="muted small">إذا ما ردّت خلال 12 ساعة، الطلب بينرفض تلقائياً وبيرجعلك المبلغ كامل. وبعد ما توافق، عندك 6 ساعات تلغي فيهم مجاناً.</div></div></li>
-                <li><span className="b">3</span><div><b>استلام السيارة</b><div className="muted small">{fmtDateTime(start)} · خد هويتك ورخصتك معك، وبتوقّع عقد الإيجار عند الشركة.</div></div></li>
-              </ol>
-              <div className="row"><Link className="btn" to={`/rentals/${rental._id}`}>تابع الحجز</Link><Link className="btn secondary" to="/">رجوع للرئيسية</Link></div>
-            </div>
-          )}
+    <main>
+      <div className="page-band">
+        <div className="container">
+          <PageHead crumbs={[['/', 'الرئيسية'], [`/cars/${car._id}`, `${car.brand} ${car.model}`], [null, 'إتمام الحجز']]} kicker="إتمام الحجز" title={head[0]} sub={head[1]} />
+          <div className="band-stepper"><Stepper steps={['مراجعة الطلب', 'الدفع', 'تم الإرسال']} current={step - 1} label="خطوات الحجز" /></div>
         </div>
-        <aside className="card col sticky">
-          <h3>ملخص الحجز</h3>
-          <b>{carName(car)}</b>
-          <span className="muted small">{TRANSMISSION[car.transmission]} · {FUEL[car.fuel]} · {car.seats} مقاعد</span>
-          <span className="small">{car.company.name}</span>
-          <div className="row between"><span>{money(car.dailyPrice)} × {daysWord(days)}</span><span>{money(total)}</span></div>
-          <div className="row between bold" style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }}><span>المجموع</span><span>{money(total)}</span></div>
-          <span className="muted small">إلغاء مجاني قبل موافقة الشركة، ولأول {policies.freeCancelHoursAfterAccept} ساعات بعد الموافقة. بعدها بينخصم {Math.round(policies.lateCancelChargeRate * 100)}% ({money(total * policies.lateCancelChargeRate)}) وبيرجعلك {money(total * (1 - policies.lateCancelChargeRate))}.</span>
-          <span className="muted small">التأخير بالتسليم بعد ساعة السماح: {money(car.dailyPrice)} عن كل 24 ساعة أو جزء منها.</span>
-        </aside>
+      </div>
+
+      <div className="container page-body">
+        <div className="split">
+          <div className="col" style={{ gap: 20 }}>
+            {step === 1 && (
+              <section className="panel" aria-labelledby="trip-title">
+                <h2 id="trip-title">تفاصيل الرحلة</h2>
+                {!verified && <div className="alert amber">حسابك لسا مش موثّق. بتقدر تطلب الحجز بس لما الإدارة توثّق هويتك ورخصة السواقة.</div>}
+                <div className="info-grid">
+                  <div className="info-tile"><Icon name="calendar" /><div><span>الاستلام</span><b>{fmtDateTime(start)}</b></div></div>
+                  <div className="info-tile"><Icon name="calendar" /><div><span>التسليم</span><b>{fmtDateTime(end)}</b></div></div>
+                  <div className="info-tile"><Icon name="pin" /><div><span>المكان</span><b>{car.pickupLocation?.address}</b></div></div>
+                  <div className="info-tile"><Icon name="clock" /><div><span>المدة</span><b>{daysWord(days)}</b></div></div>
+                </div>
+                <div className="alert small">
+                  الاستلام والتسليم بالساعة اللي اخترتها. في ساعة سماح بالتسليم، وبعدها كل 24 ساعة تأخير بتنحسب يوم كامل.
+                  وبتقدر تطلب تمديد بعد الاستلام، قبل موعد التسليم بـ{policies.extensionMinHoursBefore} ساعة على الأقل.
+                </div>
+                <button type="button" className="btn lg block" disabled={!verified} onClick={() => (agree ? setStep(2) : setShowTerms(true))}>كمّل للدفع</button>
+                <span className="muted small">قبل الدفع بتقرأ <Link to="/terms" target="_blank" rel="noreferrer">الشروط والسياسات</Link> وبتوافق عليها.</span>
+              </section>
+            )}
+            {showTerms && <TermsModal onClose={() => setShowTerms(false)} onAccept={() => { setAgree(true); setShowTerms(false); setStep(2); }} />}
+
+            {step === 2 && (
+              <section className="panel" aria-labelledby="pay-title">
+                <div className="panel-head">
+                  <h2 id="pay-title">الدفع</h2>
+                  <span className="secure"><Icon name="lock" size={16} />دفع آمن ومشفّر</span>
+                </div>
+                <p className="muted">بتدفع {money(total)} هلأ، وبيضلوا محجوزين عند بوابة الدفع لحد ما الشركة توافق. إذا رفضت أو ما ردّت، بيرجعولك كاملين.</p>
+                {data.mode === 'stripe' ? (
+                  <StripePay booking={{ carId, startDate: start, endDate: end, acceptTerms: agree }} total={total} onPaid={(r) => { setRental(r); setStep(3); }} />
+                ) : (
+                  <form className="col" style={{ gap: 14 }} onSubmit={pay} noValidate>
+                    <ErrorBox error={payError} />
+                    <Field label="رقم البطاقة" error={errs.number}><input className="input ltr" inputMode="numeric" autoComplete="cc-number" value={card.number} onChange={(e) => setCard({ ...card, number: e.target.value })} placeholder="4242 4242 4242 4242" /></Field>
+                    <Field label="الاسم على البطاقة" error={errs.name}><input className="input" autoComplete="cc-name" value={card.name} onChange={(e) => setCard({ ...card, name: e.target.value })} /></Field>
+                    <div className="form-grid">
+                      <Field label="تاريخ الانتهاء" error={errs.exp}><input className="input ltr" autoComplete="cc-exp" placeholder="MM/YY" value={card.exp} onChange={(e) => setCard({ ...card, exp: e.target.value })} /></Field>
+                      <Field label="رمز الأمان (CVV)" error={errs.cvv}><input className="input ltr" inputMode="numeric" autoComplete="cc-csc" value={card.cvv} onChange={(e) => setCard({ ...card, cvv: e.target.value })} /></Field>
+                    </div>
+                    <span className="muted small">وضع التجربة: استعمل أي رقم تجريبي مثل 4242 4242 4242 4242. الرقم اللي بيخلص بـ 0002 بيترفض.</span>
+                    <button type="submit" className="btn lg block" disabled={busy}>{busy ? 'عم نتأكد من الدفع…' : `ادفع ${money(total)}`}</button>
+                  </form>
+                )}
+                <button type="button" className="btn ghost" onClick={() => setStep(1)}>رجوع لمراجعة الطلب</button>
+              </section>
+            )}
+
+            {step === 3 && rental && (
+              <section className="panel" aria-labelledby="sent-title">
+                <div className="success-head">
+                  <span className="done-mark"><Icon name="check" size={30} /></span>
+                  <h2 id="sent-title">الدفع تم، وطلبك عند الشركة</h2>
+                  <span className="code-pill"><span className="muted small">رقم الحجز</span><span className="ltr">{rental.code}</span><span className="badge status amber">قيد الانتظار</span></span>
+                </div>
+                <ol className="timeline">
+                  <li className="done"><span className="b on"><Icon name="check" size={16} /></span><div><b>الدفع تم</b><div className="muted small">{money(total)} محجوزين عند بوابة الدفع لحد ما الشركة توافق.</div></div></li>
+                  <li><span className="b">2</span><div><b>بانتظار موافقة الشركة</b><div className="muted small">إذا ما ردّت خلال 12 ساعة، الطلب بينرفض تلقائياً وبيرجعلك المبلغ كامل. وبعد ما توافق، عندك 6 ساعات تلغي فيهم مجاناً.</div></div></li>
+                  <li><span className="b">3</span><div><b>استلام السيارة</b><div className="muted small">{fmtDateTime(start)} · خد هويتك ورخصتك معك، وبتوقّع عقد الإيجار عند الشركة.</div></div></li>
+                </ol>
+                <div className="row"><Link className="btn" to={`/rentals/${rental._id}`}>تابع الحجز</Link><Link className="btn secondary" to="/search">تصفّح سيارات ثانية</Link></div>
+              </section>
+            )}
+          </div>
+
+          <aside className="panel stick" aria-labelledby="summary-title">
+            <h2 id="summary-title" style={{ fontSize: 'var(--fs-4)' }}>ملخص الحجز</h2>
+            <div className="summary-car">
+              <div className="thumb"><CarImage car={car} alt="" /></div>
+              <div className="col" style={{ gap: 2, minWidth: 0 }}>
+                <b>{carName(car)}</b>
+                <span className="muted small">{TRANSMISSION[car.transmission]} · {FUEL[car.fuel]} · {car.seats} مقاعد</span>
+                <span className="small"><span className="verified"><Icon name="shield" size={14} />{car.company.name}</span></span>
+              </div>
+            </div>
+            <div className="sum-line"><span>{money(car.dailyPrice)} × {daysWord(days)}</span><span>{money(total)}</span></div>
+            <div className="sum-total"><span>المجموع</span><span>{money(total)}</span></div>
+            <ul className="note-list">
+              <li><Icon name="info" size={16} /><span>إلغاء مجاني قبل موافقة الشركة، ولأول {policies.freeCancelHoursAfterAccept} ساعات بعد الموافقة. بعدها بينخصم {Math.round(policies.lateCancelChargeRate * 100)}% ({money(total * policies.lateCancelChargeRate)}) وبيرجعلك {money(total * (1 - policies.lateCancelChargeRate))}.</span></li>
+              <li><Icon name="clock" size={16} /><span>التأخير بالتسليم بعد ساعة السماح: {money(car.dailyPrice)} عن كل 24 ساعة أو جزء منها.</span></li>
+            </ul>
+          </aside>
+        </div>
       </div>
     </main>
   );

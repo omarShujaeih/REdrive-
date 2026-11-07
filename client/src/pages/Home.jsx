@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
-import { CarCard, Icon, Loading, useLoad } from '../components/ui.jsx';
+import { CarCard, Icon, SkeletonCards, useLoad } from '../components/ui.jsx';
 import HeroFleet from '../components/HeroFleet.jsx';
 import Reveal from '../components/Reveal.jsx';
 import { CITIES, isoDay } from '../labels.js';
@@ -63,7 +63,7 @@ export default function Home() {
             <div><span className="kicker">{s.kicker}</span><h2>{s.title}</h2><p>{s.sub}</p></div>
             <Link to={s.link} className="see-all">عرض الكل<Icon name="arrowLeft" size={18} /></Link>
           </div>
-          {s.q.loading ? <Loading /> : (
+          {s.q.loading ? <SkeletonCards count={3} className="grid cards three" /> : (
             <div className="grid cards three">{s.q.data?.cars.slice(0, 3).map((c, i) => <CarCard key={c._id} car={c} style={{ '--i': i + 1 }} />)}</div>
           )}
         </Reveal>

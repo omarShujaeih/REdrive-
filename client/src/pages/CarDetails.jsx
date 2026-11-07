@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import Calendar from '../components/Calendar.jsx';
-import { Badge, CarImage, ErrorBox, Loading, Stars, useLoad } from '../components/ui.jsx';
-import { CITIES, FUEL, TRANSMISSION, countDays, dayName, daysWord, isoDay, money, fmtDate, slotsForDay } from '../labels.js';
+import { CarImage, ErrorBox, Icon, Loading, Stars, useLoad } from '../components/ui.jsx';
+import { CITIES, FUEL, TRANSMISSION, carName, initial, countDays, dayName, daysWord, isoDay, money, fmtDate, slotsForDay } from '../labels.js';
 import { OpeningHours } from '../components/Hours.jsx';
 
 export function bookedDays(bookings, statuses = ['confirmed', 'active']) {
@@ -27,11 +27,25 @@ export default function CarDetails() {
   const [startTime, setStartTime] = useState((params.get('start') || '').slice(11, 16) || '10:00');
   const [endTime, setEndTime] = useState((params.get('end') || '').slice(11, 16) || '10:00');
   const [fav, setFav] = useState(null);
+  const [photo, setPhoto] = useState(0);
+  const [bookInView, setBookInView] = useState(false);
+  const bookRef = useRef(null);
+  const calRef = useRef(null);
 
-  if (loading) return <Loading />;
-  if (error) return <main className="container"><ErrorBox error={error} /></main>;
+  // Phones: the booking bar at the bottom hides while the booking box itself is on screen.
+  useEffect(() => {
+    const el = bookRef.current;
+    if (!el || !('IntersectionObserver' in window)) return undefined;
+    const io = new IntersectionObserver(([entry]) => setBookInView(entry.isIntersecting), { threshold: 0.15 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [loading]);
+
+  if (loading) return <Loading lines={5} />;
+  if (error) return <main className="container page-body"><ErrorBox error={error} /></main>;
   const { car, bookings, reviews, companyTrips } = data;
   const isFav = fav ?? data.favorite;
+  const canBook = user?.role !== 'company' && user?.role !== 'admin';
   const booked = bookedDays(bookings);
   const blocked = new Set(car.blockedDates.map(isoDay));
   const from = isoDay(car.availableFrom); const to = isoDay(car.availableTo); const today = isoDay(Date.now());
@@ -46,6 +60,7 @@ export default function CarDetails() {
   const returnAt = end && et ? new Date(`${end}T${et}:00`) : null;
   const tooSoon = pickupAt && pickupAt < new Date();
   const days = pickupAt && returnAt && returnAt > pickupAt && !tooSoon ? countDays(pickupAt, returnAt) : 0;
+  const photos = car.photos.slice(0, 6);
 
   const pick = (k) => {
     if (!start || end || k <= start) { setStart(k); setEnd(''); return; }
@@ -59,112 +74,174 @@ export default function CarDetails() {
     const r = await api(`/cars/${id}/favorite`, { method: 'POST' });
     setFav(r.favorite);
   };
+  const goBook = () => (days ? bookRef : calRef).current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   return (
-    <main className="container col" style={{ gap: 20 }}>
-      <div className="row muted small"><Link to="/">الرئيسية</Link> ‹ <Link to={`/search?city=${car.city}`}>{CITIES[car.city]}</Link> ‹ <span>{car.brand} {car.model}</span></div>
-      <div className="split">
-        <div className="col" style={{ gap: 20 }}>
-          <div className="row between">
-            <div className="col" style={{ gap: 2 }}>
-              <h1 style={{ fontSize: 30 }}>{car.brand} {car.model} {car.year}</h1>
-              <span className="muted"><Stars value={car.ratingAvg} /> · {car.ratingCount} تقييم · {CITIES[car.city]}</span>
-            </div>
-            {user?.role !== 'company' && user?.role !== 'admin' && <button type="button" className="btn secondary" onClick={toggleFav} aria-pressed={isFav}>{isFav ? '♥ بالمفضلة' : '♡ احفظ'}</button>}
-          </div>
-          <div style={{ borderRadius: 20, overflow: 'hidden' }}><CarImage car={car} /></div>
-          {car.photos.length > 1 && <div className="row">{car.photos.slice(1, 6).map((p) => <img key={p} src={p} alt="" style={{ width: 110, height: 72, objectFit: 'cover', borderRadius: 10 }} />)}</div>}
-
-          <Link to={`/companies/${car.company._id}`} className="card row" style={{ color: 'var(--ink)' }}>
-            <span className="avatar">{car.company.name[0]}</span>
-            <div className="col grow" style={{ gap: 0 }}>
-              <b>{car.company.name} <Badge tone="green">شركة موثّقة</Badge></b>
-              <span className="muted small"><Stars value={car.company.ratingAvg} /> · {companyTrips} رحلة مكتملة</span>
-            </div>
-            <span>صفحة الشركة ‹</span>
-          </Link>
-
-          <section className="card col">
-            <h3>المواصفات</h3>
-            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
-              {[['ناقل الحركة', TRANSMISSION[car.transmission]], ['الوقود', FUEL[car.fuel]], ['المقاعد', `${car.seats} مقاعد`], ['سنة الصنع', car.year]].map(([k, v]) => (
-                <div key={k} className="card soft" style={{ padding: 12 }}><span className="muted small">{k}</span><div className="bold">{v}</div></div>
-              ))}
-            </div>
-            {car.features.length > 0 && <><b>مزايا إضافية</b><div className="chips">{car.features.map((f) => <span key={f} className="badge">{f}</span>)}</div></>}
-          </section>
-
-          <section className="card col">
-            <h3>شروط الإيجار</h3>
-            <ul style={{ margin: 0, paddingInlineStart: 18 }} className="col">
-              <li>الإلغاء مجاني قبل موافقة الشركة، ولأول 6 ساعات بعد الموافقة. بعدها بينخصم 60% من المبلغ.</li>
-              <li>إذا ما وصلت خلال ساعتين من موعد الاستلام، الشركة بتقدر تسجّل عدم حضور وبينخصم 60%.</li>
-              <li>بتوقّع عقد الإيجار عند الشركة وقت الاستلام، وشروط الوقود والتأمين حسب سياسة الشركة.</li>
-            </ul>
-          </section>
-
-          <section className="card col">
-            <h3>الأيام المتاحة</h3>
-            <span className="muted small">اختار يوم الاستلام، وبعدين يوم التسليم.</span>
-            <Calendar dayClass={dayClass} disabled={(k) => unavailable(k) && !(start && !end && k > start)} onPick={pick} initial={start || undefined} />
-            <div className="legend"><span><i className="sel" />اختيارك</span><span><i className="range" />ضمن المدة</span><span><i className="booked" />محجوز</span><span><i className="blocked" />مسكّر</span></div>
-          </section>
-
-          <section className="card col">
-            <h3>مكان الاستلام والتسليم</h3>
-            <span>{car.pickupLocation?.address}</span>
-            <span className="muted small">بتستلم السيارة وبترجّعها على نفس الفرع، بالساعة اللي بتختارها وقت الحجز ضمن ساعات الدوام.</span>
-            <b className="small" style={{ marginTop: 6 }}>ساعات دوام الفرع</b>
-            <OpeningHours company={car.company} />
-          </section>
-
-          <section className="card col">
-            <h3>التقييمات ({reviews.length})</h3>
-            {reviews.length === 0 && <span className="muted">لسا ما في تقييمات.</span>}
-            {reviews.map((r) => (
-              <div key={r._id} className="row" style={{ alignItems: 'flex-start' }}>
-                <span className="avatar">{r.author?.name?.[0]}</span>
-                <div className="col" style={{ gap: 2 }}><b className="small">{r.author?.name} · {'★'.repeat(r.stars)}</b><span>{r.comment}</span><span className="muted small">{fmtDate(r.createdAt)}</span></div>
+    <main className={canBook ? 'has-mobile-book' : ''}>
+      <div className="page-band">
+        <div className="container page-head">
+          <nav className="crumbs" aria-label="مسار الصفحة">
+            <ol>
+              <li><Link to="/">الرئيسية</Link></li>
+              <li><Link to={`/search?city=${car.city}`}>{CITIES[car.city]}</Link></li>
+              <li><span aria-current="page">{car.brand} {car.model}</span></li>
+            </ol>
+          </nav>
+          <div className="cd-title">
+            <div>
+              <h1>{car.brand} {car.model} <span className="car-year">{car.year}</span></h1>
+              <div className="cd-meta">
+                <span><Stars value={car.ratingAvg} />{car.ratingCount > 0 && ` · ${car.ratingCount} تقييم`}</span>
+                <span><Icon name="pin" size={16} />{CITIES[car.city]}</span>
+                <span><Icon name="building" size={16} />{car.company.name}</span>
               </div>
-            ))}
-          </section>
+            </div>
+            {canBook && (
+              <button type="button" className="btn secondary sm fav-btn" onClick={toggleFav} aria-pressed={!!isFav}>
+                <Icon name="heart" size={18} />{isFav ? 'بالمفضلة' : 'احفظ'}
+              </button>
+            )}
+          </div>
         </div>
-
-        <aside className="card col sticky">
-          <div><span className="price" style={{ fontSize: 26 }}>{money(car.dailyPrice)}</span> <span className="muted">باليوم</span></div>
-          <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <div className="card soft" style={{ padding: 10 }}><span className="muted small">الاستلام</span><div className="bold small">{start ? fmtDate(start) : 'اختار من التقويم'}</div></div>
-            <div className="card soft" style={{ padding: 10 }}><span className="muted small">التسليم</span><div className="bold small">{end ? fmtDate(end) : '—'}</div></div>
-          </div>
-          <div className="time-row">
-            <label className="field"><span className="small bold">ساعة الاستلام</span>
-              <select className="input" value={st || ''} onChange={(e) => setStartTime(e.target.value)} disabled={!start || !startSlots.length}>
-                {startSlots.length ? startSlots.map((h) => <option key={h} value={h}>{h}</option>) : <option value="">—</option>}
-              </select>
-            </label>
-            <label className="field"><span className="small bold">ساعة التسليم</span>
-              <select className="input" value={et || ''} onChange={(e) => setEndTime(e.target.value)} disabled={!end || !endSlots.length}>
-                {endSlots.length ? endSlots.map((h) => <option key={h} value={h}>{h}</option>) : <option value="">—</option>}
-              </select>
-            </label>
-          </div>
-          {start && !startSlots.length && <div className="alert amber small">{start === today ? 'خلص دوام الفرع اليوم.' : `الفرع مسكّر يوم ${dayName(start)}.`} اختار يوم استلام ثاني.</div>}
-          {end && !endSlots.length && <div className="alert amber small">الفرع مسكّر يوم {dayName(end)}. اختار يوم تسليم ثاني.</div>}
-          {tooSoon && <div className="alert amber small">ساعة الاستلام فاتت. اختار ساعة بعد الساعة هلأ.</div>}
-          {days > 0 && (
-            <>
-              <div className="row between"><span>{money(car.dailyPrice)} × {daysWord(days)}</span><span>{money(car.dailyPrice * days)}</span></div>
-              <div className="row between bold" style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }}><span>المجموع</span><span>{money(car.dailyPrice * days)}</span></div>
-              <span className="muted small">كل 24 ساعة من ساعة الاستلام بتنحسب يوم، وأي جزء من يوم بينحسب يوم كامل.</span>
-            </>
-          )}
-          {user?.role === 'company' || user?.role === 'admin' ? <div className="alert">الحجز متاح لحسابات المستأجرين بس.</div> : (
-            <button type="button" className="btn block" disabled={!days} onClick={() => navigate(`/checkout/${car._id}?start=${start}T${st}&end=${end}T${et}`)}>اطلب الحجز</button>
-          )}
-          {!end && <span className="muted small">اختار يوم التسليم من التقويم عشان نحسبلك المجموع.</span>}
-          <span className="muted small">بتدفع المبلغ كامل أونلاين، وبيضل محجوز لحد ما الشركة توافق. إذا رفضت أو ما ردّت خلال 12 ساعة، بترجعلك المصاري كاملة.</span>
-        </aside>
       </div>
+
+      <div className="container page-body">
+        <div className="split">
+          <div className="col" style={{ gap: 20 }}>
+            <div className="cd-gallery">
+              <div className="cd-main"><CarImage car={car} src={photos[photo]} alt={`${carName(car)}، صورة ${photo + 1}`} /></div>
+              {photos.length > 1 && (
+                <div className="cd-thumbs" role="group" aria-label="صور السيارة">
+                  {photos.map((p, i) => (
+                    <button type="button" key={p} aria-pressed={i === photo} aria-label={`الصورة ${i + 1}`} onClick={() => setPhoto(i)}><img src={p} alt="" /></button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <section className="panel" aria-labelledby="specs-title">
+              <h2 id="specs-title">المواصفات</h2>
+              <div className="spec-grid">
+                {[['gear', 'ناقل الحركة', TRANSMISSION[car.transmission]], ['fuel', 'الوقود', FUEL[car.fuel]], ['seat', 'المقاعد', `${car.seats} مقاعد`], ['calendar', 'سنة الصنع', car.year]].map(([icon, k, v]) => (
+                  <div key={k} className="spec"><Icon name={icon} size={20} /><span>{k}</span><b>{v}</b></div>
+                ))}
+              </div>
+              {car.features.length > 0 && (
+                <>
+                  <h3>مزايا إضافية</h3>
+                  <div className="chips">{car.features.map((f) => <span key={f} className="badge">{f}</span>)}</div>
+                </>
+              )}
+            </section>
+
+            <section className="panel" ref={calRef} aria-labelledby="dates-title">
+              <div className="panel-head">
+                <h2 id="dates-title">اختار التواريخ</h2>
+                {(start || end) && <button type="button" className="btn ghost sm" onClick={() => { setStart(''); setEnd(''); }}>امسح الاختيار</button>}
+              </div>
+              <span className="muted small">اضغط على يوم الاستلام، وبعدين على يوم التسليم. الساعة بتختارها من صندوق الحجز.</span>
+              <div className="cal-wrap"><Calendar dayClass={dayClass} disabled={(k) => unavailable(k) && !(start && !end && k > start)} onPick={pick} initial={start || undefined} /></div>
+              <div className="legend"><span><i className="sel" />اختيارك</span><span><i className="range" />ضمن المدة</span><span><i className="booked" />محجوز</span><span><i className="blocked" />مسكّر</span></div>
+            </section>
+
+            <section className="panel" aria-labelledby="pickup-title">
+              <h2 id="pickup-title">الاستلام والتسليم</h2>
+              <Link to={`/companies/${car.company._id}`} className="company-card">
+                <span className="co-avatar">{initial(car.company.name)}</span>
+                <span className="col grow" style={{ gap: 2 }}>
+                  <b>{car.company.name}</b>
+                  <span className="small muted"><span className="verified"><Icon name="shield" size={14} />شركة موثّقة</span> · <Stars value={car.company.ratingAvg} /> · {companyTrips} رحلة مكتملة</span>
+                </span>
+                <span className="go"><Icon name="arrowLeft" size={20} /></span>
+              </Link>
+              <ul className="check-list">
+                <li><Icon name="pin" size={18} /><span><b>{car.pickupLocation?.address}</b><br /><span className="small muted">بتستلم السيارة وبترجّعها على نفس الفرع.</span></span></li>
+                <li><Icon name="clock" size={18} /><span>الاستلام والتسليم بالساعة اللي بتختارها، ضمن ساعات دوام الفرع.</span></li>
+              </ul>
+              <h3>ساعات دوام الفرع</h3>
+              <OpeningHours company={car.company} />
+            </section>
+
+            <section className="panel" aria-labelledby="terms-title">
+              <h2 id="terms-title">شروط الإيجار</h2>
+              <ul className="check-list">
+                <li><Icon name="check" size={18} /><span>الإلغاء مجاني قبل موافقة الشركة، ولأول 6 ساعات بعد الموافقة. بعدها بينخصم 60% من المبلغ.</span></li>
+                <li><Icon name="check" size={18} /><span>إذا ما وصلت خلال ساعتين من موعد الاستلام، الشركة بتقدر تسجّل عدم حضور وبينخصم 60%.</span></li>
+                <li><Icon name="check" size={18} /><span>بتوقّع عقد الإيجار عند الشركة وقت الاستلام، وشروط الوقود والتأمين حسب سياسة الشركة.</span></li>
+              </ul>
+              <Link to="/terms" className="small">اقرأ الشروط والسياسات كاملة</Link>
+            </section>
+
+            <section className="panel" aria-labelledby="reviews-title">
+              <h2 id="reviews-title">التقييمات ({reviews.length})</h2>
+              {reviews.length === 0 && <span className="muted">لسا ما في تقييمات لهالسيارة.</span>}
+              {reviews.map((r) => (
+                <div key={r._id} className="review">
+                  <span className="avatar">{r.author?.name?.[0]}</span>
+                  <div className="col" style={{ gap: 2 }}>
+                    <b className="small">{r.author?.name} <span className="stars-row" aria-label={`${r.stars} من 5`}>{'★'.repeat(r.stars)}</span></b>
+                    <span>{r.comment}</span>
+                    <span className="muted small">{fmtDate(r.createdAt)}</span>
+                  </div>
+                </div>
+              ))}
+            </section>
+          </div>
+
+          <aside className="panel book-box stick" ref={bookRef} aria-label="الحجز">
+            <div className="book-top">
+              <div><span className="amount">{money(car.dailyPrice)}</span> <small>باليوم</small></div>
+              <small><span className="verified"><Icon name="shield" size={14} />{car.company.name}</span></small>
+            </div>
+            <div className="book-body">
+              <div className="date-tiles">
+                <div className={`date-tile${start ? ' set' : ''}`}><span>الاستلام</span><b>{start ? fmtDate(start) : 'اختار من التقويم'}</b></div>
+                <div className={`date-tile${end ? ' set' : ''}`}><span>التسليم</span><b>{end ? fmtDate(end) : '—'}</b></div>
+              </div>
+              <div className="time-row">
+                <label className="field"><span className="small bold">ساعة الاستلام</span>
+                  <select className="input" value={st || ''} onChange={(e) => setStartTime(e.target.value)} disabled={!start || !startSlots.length}>
+                    {startSlots.length ? startSlots.map((h) => <option key={h} value={h}>{h}</option>) : <option value="">—</option>}
+                  </select>
+                </label>
+                <label className="field"><span className="small bold">ساعة التسليم</span>
+                  <select className="input" value={et || ''} onChange={(e) => setEndTime(e.target.value)} disabled={!end || !endSlots.length}>
+                    {endSlots.length ? endSlots.map((h) => <option key={h} value={h}>{h}</option>) : <option value="">—</option>}
+                  </select>
+                </label>
+              </div>
+              {start && !startSlots.length && <div className="alert amber small">{start === today ? 'خلص دوام الفرع اليوم.' : `الفرع مسكّر يوم ${dayName(start)}.`} اختار يوم استلام ثاني.</div>}
+              {end && !endSlots.length && <div className="alert amber small">الفرع مسكّر يوم {dayName(end)}. اختار يوم تسليم ثاني.</div>}
+              {tooSoon && <div className="alert amber small">ساعة الاستلام فاتت. اختار ساعة بعد الساعة هلأ.</div>}
+              {days > 0 && (
+                <>
+                  <div className="sum-line"><span>{money(car.dailyPrice)} × {daysWord(days)}</span><span>{money(car.dailyPrice * days)}</span></div>
+                  <div className="sum-total"><span>المجموع</span><span>{money(car.dailyPrice * days)}</span></div>
+                  <span className="muted small">كل 24 ساعة من ساعة الاستلام بتنحسب يوم، وأي جزء من يوم بينحسب يوم كامل.</span>
+                </>
+              )}
+              {canBook ? (
+                <button type="button" className="btn lg block" disabled={!days} onClick={() => navigate(`/checkout/${car._id}?start=${start}T${st}&end=${end}T${et}`)}>اطلب الحجز</button>
+              ) : <div className="alert">الحجز متاح لحسابات المستأجرين بس.</div>}
+              {!end && <span className="muted small">اختار يوم التسليم من التقويم عشان نحسبلك المجموع.</span>}
+              <ul className="note-list">
+                <li><Icon name="lock" size={16} />بتدفع المبلغ كامل أونلاين، وبيضل محجوز لحد ما الشركة توافق.</li>
+                <li><Icon name="clock" size={16} />إذا رفضت أو ما ردّت خلال 12 ساعة، بترجعلك المصاري كاملة.</li>
+              </ul>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      {canBook && (
+        <div className={`mobile-book${bookInView ? ' away' : ''}`}>
+          <div className="col" style={{ gap: 0 }}>
+            <span><b>{money(car.dailyPrice)}</b> <span className="muted small">باليوم</span></span>
+            {days > 0 && <span className="small muted">المجموع {money(car.dailyPrice * days)} · {daysWord(days)}</span>}
+          </div>
+          <button type="button" className="btn" onClick={goBook}>{days ? 'كمّل الحجز' : 'اختار التواريخ'}</button>
+        </div>
+      )}
     </main>
   );
 }

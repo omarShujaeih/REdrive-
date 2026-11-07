@@ -103,3 +103,6 @@ export const slotsForDay = (company, day) => {
   return Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, "0")}:00`).filter((t) => t >= h.open && t < h.close);
 };
 export const dayName = (day) => DAY_NAMES[new Date(`${day}T12:00:00`).getDay()];
+
+// First letter for avatars, skipping the Arabic article ("الريادة" -> "ر").
+export const initial = (name = '') => (name.replace(/^ال(?=\S{2})/, '')[0] || name[0] || '');

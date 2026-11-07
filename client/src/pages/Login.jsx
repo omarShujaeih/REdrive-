@@ -2,18 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
-import { ErrorBox, Field, Icon, Logo } from '../components/ui.jsx';
-import { Leds } from '../components/HeroFleet.jsx';
-import loginCar from '../assets/hero/login-sportage.webp';
-
-// Real photo of a Kia Sportage GT-line (assets/hero/CREDITS.md) with its LEDs traced in the photo's pixel space,
-// lit and blinking the same way as the cars in the home hero.
-const LOGIN_CAR = {
-  key: 'login', w: 3624, h: 2304, width: 27,
-  drl: ['M1691 1035 L1903 1126 L2079 1185 L2209 1244 L2315 1326 L2397 1421 L2374 1491 L2279 1609 L2162 1703 L2091 1726', 'M2039 2113 L2194 2013'],
-  bars: ['M1832 1303 L2244 1291', 'M1821 1338 L2256 1326', 'M1832 1374 L2256 1368'],
-  lamps: [{ cx: 2056, cy: 1444, rx: 230, ry: 120 }, { cx: 2117, cy: 2067, rx: 95, ry: 60 }, { cx: 3505, cy: 1060, rx: 30, ry: 95, far: true }],
-};
+import { ErrorBox, Field, Icon } from '../components/ui.jsx';
+import AuthShell from '../components/AuthShell.jsx';
 
 export function homeFor(user) {
   if (user.role === 'admin') return '/admin';
@@ -49,87 +39,58 @@ export default function Login() {
   const switchMode = (m) => { setMode(m); setIdentifier(''); setError(''); };
 
   return (
-    <div className="auth-page">
-      <header className="container auth-top">
-        <Link to="/assistant" className="nav-link" aria-label="اسأل Redrive"><Icon name="sparkle" color="var(--electric)" /><span className="lbl-long">اسأل Redrive</span></Link>
-        <Logo />
-      </header>
+    <AuthShell labelledBy="login-title">
+      <div className="auth-head">
+        <h1 id="login-title">أهلاً فيك من جديد</h1>
+        <p>سجّل دخولك عشان تكمل حجزك وتتابع طلباتك.</p>
+      </div>
 
-      <main className="container auth-main">
-        <section className="auth-form" aria-labelledby="login-title">
-          <div className="auth-head">
-            <h1 id="login-title">أهلاً فيك من جديد</h1>
-            <p>سجّل دخولك عشان تكمل حجزك وتتابع طلباتك.</p>
-          </div>
+      <form className="col" style={{ gap: 18 }} onSubmit={submit}>
+        <div className="segmented" role="tablist" aria-label="طريقة الدخول">
+          <button type="button" role="tab" aria-selected={mode === 'email'} onClick={() => switchMode('email')}><Icon name="mail" size={18} />البريد الإلكتروني</button>
+          <button type="button" role="tab" aria-selected={mode === 'phone'} onClick={() => switchMode('phone')}><Icon name="phone" size={18} />رقم الجوال</button>
+        </div>
 
-          <form className="col" style={{ gap: 18 }} onSubmit={submit}>
-            <div className="segmented" role="tablist" aria-label="طريقة الدخول">
-              <button type="button" role="tab" aria-selected={mode === 'email'} onClick={() => switchMode('email')}><Icon name="mail" size={18} />البريد الإلكتروني</button>
-              <button type="button" role="tab" aria-selected={mode === 'phone'} onClick={() => switchMode('phone')}><Icon name="phone" size={18} />رقم الجوال</button>
+        <ErrorBox error={error} />
+
+        {mode === 'email' ? (
+          <Field label="البريد الإلكتروني">
+            <input className="input ltr" type="email" autoComplete="email" placeholder="name@example.com" required value={identifier} onChange={(e) => setIdentifier(e.target.value)} aria-invalid={!!error} />
+          </Field>
+        ) : (
+          <Field label="رقم الجوال">
+            <div className="phone-row">
+              <select className="input" value={prefix} onChange={(e) => setPrefix(e.target.value)} aria-label="مقدمة الدولة"><option>+970</option><option>+972</option></select>
+              <input className="input" inputMode="tel" autoComplete="tel-national" required value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="59X XXX XXX" aria-label="رقم الجوال" aria-invalid={!!error} />
             </div>
+          </Field>
+        )}
 
-            <ErrorBox error={error} />
-
-            {mode === 'email' ? (
-              <Field label="البريد الإلكتروني">
-                <input className="input ltr" type="email" autoComplete="email" placeholder="name@example.com" required value={identifier} onChange={(e) => setIdentifier(e.target.value)} aria-invalid={!!error} />
-              </Field>
-            ) : (
-              <Field label="رقم الجوال">
-                <div className="row ltr" style={{ flexWrap: 'nowrap', gap: 8 }}>
-                  <select className="input" style={{ width: 110 }} value={prefix} onChange={(e) => setPrefix(e.target.value)} aria-label="مقدمة الدولة"><option>+970</option><option>+972</option></select>
-                  <input className="input" inputMode="tel" autoComplete="tel-national" required value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="59X XXX XXX" aria-invalid={!!error} />
-                </div>
-              </Field>
-            )}
-
-            <div className="field">
-              <div className="row between" style={{ gap: 8 }}>
-                <label htmlFor="password">كلمة المرور</label>
-                <Link to="/forgot-password" className="small">نسيت كلمة المرور؟</Link>
-              </div>
-              <div className="input-wrap">
-                <input id="password" className="input" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} aria-invalid={!!error} />
-                <button type="button" className="input-icon" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'خبّي كلمة المرور' : 'اعرض كلمة المرور'} aria-pressed={showPassword}>
-                  <Icon name={showPassword ? 'eyeOff' : 'eye'} />
-                </button>
-              </div>
-            </div>
-
-            <label className="check">
-              <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
-              <span>تذكّرني على هاد الجهاز</span>
-            </label>
-
-            <button className="btn lg block" disabled={busy}>{busy ? 'عم نسجّل دخولك…' : 'تسجيل الدخول'}</button>
-          </form>
-
-          <div className="auth-alt">
-            <p>ما عندك حساب؟ <Link to="/register?role=renter">أنشئ حساب مستأجر</Link></p>
-            <p>عندك شركة تأجير مرخّصة؟ <Link to="/register?role=company">سجّل شركتك</Link></p>
+        <div className="field">
+          <div className="row between" style={{ gap: 8 }}>
+            <label htmlFor="password">كلمة المرور</label>
+            <Link to="/forgot-password" className="small">نسيت كلمة المرور؟</Link>
           </div>
-        </section>
-
-        <aside className="auth-visual navy" aria-label="عن Redrive">
-          <div className="auth-visual-copy">
-            <span className="eyebrow"><i aria-hidden="true" />Redrive</span>
-            <h2>المنصة الفلسطينية لتأجير السيارات</h2>
-            <p>سيارات من شركات مرخّصة في رام الله، نابلس، الخليل، بيت لحم وجنين. احجز بالتواريخ اللي بتناسبك وادفع أونلاين.</p>
+          <div className="input-wrap">
+            <input id="password" className="input" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} aria-invalid={!!error} />
+            <button type="button" className="input-icon" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'خبّي كلمة المرور' : 'اعرض كلمة المرور'} aria-pressed={showPassword}>
+              <Icon name={showPassword ? 'eyeOff' : 'eye'} />
+            </button>
           </div>
-          <span className="auth-floor" aria-hidden="true" />
-          <div className="auth-car" style={{ '--d': '0.5s' }}>
-            <img className="fleet-reflection" src={loginCar} alt="" aria-hidden="true" />
-            <img className="fleet-photo" src={loginCar} alt="كيا سبورتاج بيضاء وأضويتها شغّالة" width={LOGIN_CAR.w} height={LOGIN_CAR.h} />
-            <Leds car={LOGIN_CAR} />
-          </div>
-        </aside>
-      </main>
+        </div>
 
-      <footer className="container auth-foot">
-        <span>© 2026 Redrive · المنصة الفلسطينية لتأجير السيارات</span>
-        <span>صورة السيارة: Alexander Migl، ويكيميديا كومنز · CC BY-SA 4.0</span>
-        <span className="row" style={{ gap: 16 }}><Link to="/assistant">تواصل معنا</Link></span>
-      </footer>
-    </div>
+        <label className="check">
+          <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+          <span>تذكّرني على هاد الجهاز</span>
+        </label>
+
+        <button type="submit" className="btn lg block" disabled={busy}>{busy ? 'عم نسجّل دخولك…' : 'تسجيل الدخول'}</button>
+      </form>
+
+      <div className="auth-alt">
+        <p>ما عندك حساب؟ <Link to="/register?role=renter">أنشئ حساب مستأجر</Link></p>
+        <p>عندك شركة تأجير مرخّصة؟ <Link to="/register?role=company">سجّل شركتك</Link></p>
+      </div>
+    </AuthShell>
   );
 }

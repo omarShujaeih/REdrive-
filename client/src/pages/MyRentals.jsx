@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { CancelModal, RenterReviewModal, canRenterCancel } from '../components/RentalActions.jsx';
-import { Empty, ErrorBox, Loading, StatusBadge, useLoad } from '../components/ui.jsx';
+import { CarImage, Empty, ErrorBox, Icon, Loading, PageHead, StatusBadge, useLoad } from '../components/ui.jsx';
 import { RENTAL_STATUS, carName, daysWord, fmtDateTime, money } from '../labels.js';
 
 const TABS = [
-  { k: 'current', label: 'الحالية', s: ['pending', 'confirmed', 'active'] },
-  { k: 'past', label: 'السابقة', s: ['completed'] },
-  { k: 'cancelled', label: 'الملغية والمرفوضة', s: ['cancelled', 'rejected', 'no_show'] },
+  { k: 'current', label: 'الحالية', s: ['pending', 'confirmed', 'active'], empty: 'ما عندك حجوزات حالية' },
+  { k: 'past', label: 'السابقة', s: ['completed'], empty: 'لسا ما خلّصت أي رحلة' },
+  { k: 'cancelled', label: 'الملغية والمرفوضة', s: ['cancelled', 'rejected', 'no_show'], empty: 'ما في حجوزات ملغية أو مرفوضة' },
 ];
 
 export default function MyRentals() {
@@ -17,33 +17,55 @@ export default function MyRentals() {
   const [review, setReview] = useState(null);
   const { data, loading, error, reload } = useLoad(() => api('/rentals/mine'));
   const all = data?.rentals || [];
-  const list = all.filter((r) => TABS.find((t) => t.k === tab).s.includes(r.status));
+  const current = TABS.find((t) => t.k === tab);
+  const list = all.filter((r) => current.s.includes(r.status));
 
   return (
-    <main className="container col" style={{ gap: 20 }}>
-      <div className="col" style={{ gap: 2 }}><h1>حجوزاتي</h1><span className="muted">تابع حالة حجوزاتك، والغِ أو قيّم رحلاتك من هون.</span></div>
-      <div className="chips">{TABS.map((t) => <button type="button" key={t.k} className={`chip ${tab === t.k ? 'on' : ''}`} onClick={() => setTab(t.k)}>{t.label} ({all.filter((r) => t.s.includes(r.status)).length})</button>)}</div>
-      <ErrorBox error={error} />
-      {loading ? <Loading /> : list.length === 0 ? <Empty title="ما في حجوزات هون" action={<Link className="btn" to="/search">دوّر على سيارة</Link>} /> : (
-        <div className="col">
-          {list.map((r) => (
-            <div key={r._id} className="card row between">
-              <div className="col" style={{ gap: 4 }}>
-                <div className="row"><StatusBadge map={RENTAL_STATUS} value={r.status} /><span className="muted small ltr">{r.code}</span></div>
-                <b>{carName(r.car)}</b>
-                <span className="muted small">{r.company?.name}</span>
-                <span className="small">{fmtDateTime(r.startDate)} ← {fmtDateTime(r.endDate)} · {daysWord(r.days)} · {money(r.total)}</span>
-              </div>
-              <div className="row">
-                <Link className="btn secondary sm" to={`/rentals/${r._id}`}>التفاصيل</Link>
-                {canRenterCancel(r) && <button type="button" className="btn danger outline sm" onClick={() => setCancel(r)}>إلغاء الحجز</button>}
-                {r.status === 'completed' && !r.renterReviewed && <button type="button" className="btn sm" onClick={() => setReview(r)}>قيّم الرحلة</button>}
-                {r.renterReviewed && <span className="badge green">قيّمتها ✓</span>}
-              </div>
-            </div>
+    <main>
+      <div className="page-band">
+        <div className="container">
+          <PageHead crumbs={[['/', 'الرئيسية'], [null, 'حجوزاتي']]} kicker="حسابي" title="حجوزاتي" sub="تابع حالة حجوزاتك، والغِ أو قيّم رحلاتك من هون.">
+            <Link className="btn secondary sm" to="/search"><Icon name="search" size={18} />احجز سيارة</Link>
+          </PageHead>
+        </div>
+      </div>
+
+      <div className="container page-body">
+        <div className="tabs" role="tablist" aria-label="تصنيف الحجوزات">
+          {TABS.map((t) => (
+            <button type="button" role="tab" key={t.k} aria-selected={tab === t.k} onClick={() => setTab(t.k)}>
+              {t.label}<span className="n">{all.filter((r) => t.s.includes(r.status)).length}</span>
+            </button>
           ))}
         </div>
-      )}
+        <ErrorBox error={error} />
+        {loading ? <Loading /> : list.length === 0 ? (
+          <Empty icon="calendar" title={current.empty} text="لما تحجز سيارة، بتلاقي الحجز هون مع كل تحديثاته." action={<Link className="btn" to="/search">دوّر على سيارة</Link>} />
+        ) : (
+          <div className="rental-list" role="tabpanel">
+            {list.map((r) => (
+              <article key={r._id} className="panel rental-row">
+                <Link to={`/rentals/${r._id}`} className="thumb" tabIndex={-1} aria-hidden="true"><CarImage car={r.car} alt="" /></Link>
+                <div className="col" style={{ gap: 6, minWidth: 0 }}>
+                  <div className="rr-top"><StatusBadge map={RENTAL_STATUS} value={r.status} /><span className="muted small ltr">{r.code}</span></div>
+                  <h3><Link to={`/rentals/${r._id}`}>{carName(r.car)}</Link></h3>
+                  <div className="rr-meta">
+                    <span><Icon name="building" size={15} />{r.company?.name}</span>
+                    <span><Icon name="calendar" size={15} />{fmtDateTime(r.startDate)} ← {fmtDateTime(r.endDate)}</span>
+                    <span><Icon name="clock" size={15} />{daysWord(r.days)} · {money(r.total)}</span>
+                  </div>
+                </div>
+                <div className="rr-actions">
+                  <Link className="btn secondary sm" to={`/rentals/${r._id}`}>التفاصيل</Link>
+                  {canRenterCancel(r) && <button type="button" className="btn danger outline sm" onClick={() => setCancel(r)}>إلغاء الحجز</button>}
+                  {r.status === 'completed' && !r.renterReviewed && <button type="button" className="btn sm" onClick={() => setReview(r)}>قيّم الرحلة</button>}
+                  {r.renterReviewed && <span className="badge green"><Icon name="check" size={14} />قيّمتها</span>}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
       {cancel && <CancelModal rental={cancel} onClose={() => setCancel(null)} onDone={() => { setCancel(null); reload(); }} />}
       {review && <RenterReviewModal rental={review} onClose={() => setReview(null)} onDone={() => { setReview(null); reload(); }} />}
     </main>
