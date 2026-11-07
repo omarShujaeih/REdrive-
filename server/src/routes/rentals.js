@@ -10,7 +10,7 @@ import { wrap, httpError } from '../middleware/error.js';
 import { unavailableReason, countDays } from '../services/availability.js';
 import { closedReason } from '../services/hours.js';
 import {
-  createPaymentIntent, holdPayment, holdExtra, recordDue, payDue, settle, paymentMode, refundPaymentRef,
+  createPaymentIntent, holdPayment, holdExtra, recordDue, payDue, settle, paymentMode, refundPaymentRef, releaseIntent,
 } from '../services/payment.js';
 import { notify } from '../services/notify.js';
 import {
@@ -57,13 +57,27 @@ async function loadBookableCar({ carId, startDate, endDate }) {
 // Renter: start the payment (Stripe returns a client secret; sandbox mode needs nothing)
 router.post('/payment-intent', requireRole('renter'), requireVerified, wrap(async (req, res) => {
   const { car, start, end, days } = await loadBookableCar(req.body);
-  res.json(await createPaymentIntent({ amount: days * car.dailyPrice, renterId: req.user._id, carId: car._id, startDate: start, endDate: end }));
+  res.json(await createPaymentIntent({
+    amount: days * car.dailyPrice, renterId: req.user._id, carId: car._id,
+    metadata: { kind: 'booking', startDate: start.toISOString(), endDate: end.toISOString() },
+  }));
 }));
+
+// With Stripe the card is charged in the browser before the request reaches us. If the request is then
+// refused (dates taken meanwhile, request no longer allowed...), refund that card payment.
+const refundIfRefused = (fn) => async (req, res) => {
+  try {
+    await fn(req, res);
+  } catch (err) {
+    await releaseIntent(req.body?.paymentIntentId, req.user._id).catch((e) => console.error('[payment] release:', e.message));
+    throw err;
+  }
+};
 
 router.get('/payment-mode', (req, res) => res.json({ mode: paymentMode }));
 
 // Renter: request a rental after paying (amount is held until the company responds)
-router.post('/', requireRole('renter'), requireVerified, wrap(async (req, res) => {
+router.post('/', requireRole('renter'), requireVerified, wrap(refundIfRefused(async (req, res) => {
   const { card, paymentIntentId, acceptTerms } = req.body;
   if (!acceptTerms) throw httpError(400, 'لازم توافق على شروط الإيجار');
   const { car, start, end, days } = await loadBookableCar(req.body);
@@ -87,7 +101,7 @@ router.post('/', requireRole('renter'), requireVerified, wrap(async (req, res) =
     title: 'طلب إيجار جديد', body: `${req.user.name} · ${car.brand} ${car.model} · ${days} أيام · رد خلال 12 ساعة`,
   });
   res.status(201).json({ rental });
-}));
+})));
 
 router.get('/mine', wrap(async (req, res) => {
   const key = req.user.role === 'company' ? 'company' : 'renter';
@@ -228,25 +242,33 @@ router.post('/:id/return', requireRole('company'), wrap(async (req, res) => {
   res.json({ rental, late });
 }));
 
-// Renter pays a late-return fee that the company recorded on return.
-router.post('/:id/late-fee/pay', requireRole('renter'), wrap(async (req, res) => {
+// Renter starts paying a late fee with Stripe (sandbox mode needs nothing).
+router.post('/:id/late-fee/payment-intent', requireRole('renter'), wrap(async (req, res) => {
   const rental = await loadRental(req, ['renter']);
   const due = await Payment.findOne({ rental: rental._id, kind: 'late_fee', status: 'due' });
   if (!due) throw httpError(409, 'ما في رسوم تأخير مستحقة');
-  const payment = await payDue(due, { card: req.body.card, paymentIntentId: req.body.paymentIntentId });
+  res.json(await createPaymentIntent({ amount: due.amount, renterId: rental.renter, carId: rental.car, metadata: { kind: 'late_fee', rentalId: rental._id } }));
+}));
+
+// Renter pays a late-return fee that the company recorded on return.
+router.post('/:id/late-fee/pay', requireRole('renter'), wrap(refundIfRefused(async (req, res) => {
+  const rental = await loadRental(req, ['renter']);
+  const due = await Payment.findOne({ rental: rental._id, kind: 'late_fee', status: 'due' });
+  if (!due) throw httpError(409, 'ما في رسوم تأخير مستحقة');
+  const payment = await payDue(due, { card: req.body.card, paymentIntentId: req.body.paymentIntentId, carId: rental.car });
   await notify(rental.company, {
     type: 'rental', link: `/company/rentals/${rental._id}`,
     title: `انْدفعت رسوم التأخير ${rental.code}`, body: `₪${payment.amount}، وانحوّل لحسابك ₪${payment.transferAmount} بعد العمولة.`,
   });
   res.json({ payment });
-}));
+})));
 
-// Renter asks to return the car later. The difference is paid now and held until the company decides.
-router.post('/:id/extensions', requireRole('renter'), wrap(async (req, res) => {
-  const rental = await loadRental(req, ['renter']);
+// Checks an extension request (still allowed, a later return inside the branch's hours, the car free)
+// and prices it. Shared by the Stripe payment intent and the request itself, so both charge the same.
+async function extensionQuote(rental, endDate) {
   const terms = extensionTerms(rental);
   if (!terms.allowed) throw httpError(409, terms.reason);
-  const requestedEnd = new Date(req.body.endDate);
+  const requestedEnd = new Date(endDate);
   if (Number.isNaN(requestedEnd.getTime())) throw httpError(400, 'اختار موعد التسليم الجديد');
   if (requestedEnd <= rental.endDate) throw httpError(400, 'الموعد الجديد لازم يكون بعد موعد التسليم الحالي');
   const car = await Car.findById(rental.car);
@@ -254,9 +276,24 @@ router.post('/:id/extensions', requireRole('renter'), wrap(async (req, res) => {
   const reason = await unavailableReason(car, rental.endDate, requestedEnd, rental._id)
     || closedReason(companyUser, requestedEnd, 'التسليم');
   if (reason) throw httpError(409, reason);
-
   const extraDays = countDays(rental.endDate, requestedEnd);
-  const amount = extraDays * rental.dailyPrice;
+  return { car, requestedEnd, extraDays, amount: extraDays * rental.dailyPrice };
+}
+
+// Renter starts paying an extension with Stripe (sandbox mode needs nothing).
+router.post('/:id/extensions/payment-intent', requireRole('renter'), wrap(async (req, res) => {
+  const rental = await loadRental(req, ['renter']);
+  const { amount, requestedEnd } = await extensionQuote(rental, req.body.endDate);
+  res.json(await createPaymentIntent({
+    amount, renterId: rental.renter, carId: rental.car,
+    metadata: { kind: 'extension', rentalId: rental._id, requestedEnd: requestedEnd.toISOString() },
+  }));
+}));
+
+// Renter asks to return the car later. The difference is paid now and held until the company decides.
+router.post('/:id/extensions', requireRole('renter'), wrap(refundIfRefused(async (req, res) => {
+  const rental = await loadRental(req, ['renter']);
+  const { car, requestedEnd, extraDays, amount } = await extensionQuote(rental, req.body.endDate);
   const extensionId = new mongoose.Types.ObjectId();
   const payment = await holdExtra({ rental, kind: 'extension', amount, extensionId, card: req.body.card, paymentIntentId: req.body.paymentIntentId });
   rental.extensions.push({
@@ -275,7 +312,7 @@ router.post('/:id/extensions', requireRole('renter'), wrap(async (req, res) => {
     title: `طلب تمديد ${rental.code}`, body: `${car.brand} ${car.model} · ${extraDays === 1 ? 'يوم إضافي' : `${extraDays} أيام إضافية`} (₪${amount}) · رد قبل موعد التسليم.`,
   });
   res.status(201).json({ rental, extension: rental.extensions.id(extensionId) });
-}));
+})));
 
 // Company approves an extension: the return time moves and the held difference is transferred.
 router.post('/:id/extensions/:extId/approve', requireRole('company'), wrap(async (req, res) => {

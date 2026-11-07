@@ -13,27 +13,41 @@ const agorot = (ils) => Math.round(ils * 100);
 const BOOKING = { kind: { $nin: ['extension', 'late_fee'] } };
 
 // Step 1 (Stripe only): create a PaymentIntent that the browser confirms with the card form.
-export async function createPaymentIntent({ amount, renterId, carId, startDate, endDate }) {
-  if (!stripe) return { mode: 'sim' };
+// The metadata ties it to the renter, the car and what it pays for (kind: booking, extension or late_fee,
+// plus rentalId for payments on an existing rental); charge() checks them again before accepting it.
+export async function createPaymentIntent({ amount, renterId, carId, metadata = {} }) {
+  if (!stripe) return { mode: 'sim', amount };
+  const extra = Object.fromEntries(Object.entries(metadata).map(([k, v]) => [k, String(v)]));
   const intent = await stripe.paymentIntents.create({
     amount: agorot(amount),
     currency: 'ils',
     payment_method_types: ['card'],
-    metadata: { renterId: String(renterId), carId: String(carId), startDate: startDate.toISOString(), endDate: endDate.toISOString() },
+    metadata: { renterId: String(renterId), carId: String(carId), ...extra },
   });
-  return { mode: 'stripe', clientSecret: intent.client_secret, paymentIntentId: intent.id };
+  return { mode: 'stripe', clientSecret: intent.client_secret, paymentIntentId: intent.id, amount };
+}
+
+// A card was charged in the browser but the action behind it was refused (the car got booked meanwhile,
+// the request expired...). Give the money back, unless a payment record already uses that intent.
+export async function releaseIntent(paymentIntentId, renterId) {
+  if (!stripe || !paymentIntentId || await Payment.exists({ gatewayRef: paymentIntentId })) return;
+  const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
+  if (intent.status === 'succeeded' && intent.metadata.renterId === String(renterId)) {
+    await stripe.refunds.create({ payment_intent: paymentIntentId });
+  }
 }
 
 // Step 2: make sure the money was taken. With Stripe the browser already confirmed the intent;
 // in the sandbox any test card number works except one ending in 0002.
-async function charge({ amount, renterId, carId, card, paymentIntentId }) {
+async function charge({ amount, renterId, carId, card, paymentIntentId, expect = {} }) {
   if (stripe) {
     const intent = paymentIntentId && await stripe.paymentIntents.retrieve(paymentIntentId);
     const valid = intent
       && intent.status === 'succeeded'
       && intent.amount === agorot(amount)
       && intent.metadata.renterId === String(renterId)
-      && intent.metadata.carId === String(carId);
+      && intent.metadata.carId === String(carId)
+      && Object.entries(expect).every(([k, v]) => intent.metadata[k] === String(v));
     if (!valid) {
       const err = new Error('ما تمّت عملية الدفع');
       err.status = 402;
@@ -66,7 +80,7 @@ async function gatewayRefund(ref, amount) {
 async function gatewayTransfer() {}
 
 export async function holdPayment({ rental, card, paymentIntentId }) {
-  const ref = await charge({ amount: rental.total, renterId: rental.renter, carId: rental.car, card, paymentIntentId });
+  const ref = await charge({ amount: rental.total, renterId: rental.renter, carId: rental.car, card, paymentIntentId, expect: { kind: 'booking' } });
   return Payment.create({
     rental: rental._id, renter: rental.renter, company: rental.company,
     kind: 'booking', amount: rental.total, gatewayRef: ref, status: 'held',
@@ -75,7 +89,7 @@ export async function holdPayment({ rental, card, paymentIntentId }) {
 
 // Extra payment on an existing rental (an extension request), held until the company decides.
 export async function holdExtra({ rental, kind, amount, extensionId, card, paymentIntentId }) {
-  const ref = await charge({ amount, renterId: rental.renter, carId: rental.car, card, paymentIntentId });
+  const ref = await charge({ amount, renterId: rental.renter, carId: rental.car, card, paymentIntentId, expect: { kind, rentalId: rental._id } });
   return Payment.create({
     rental: rental._id, renter: rental.renter, company: rental.company,
     kind, extension: extensionId, amount, gatewayRef: ref, status: 'held',
@@ -88,8 +102,11 @@ export function recordDue({ rental, kind, amount }) {
 }
 
 // The renter pays a due charge; it goes straight to the company minus commission.
-export async function payDue(payment, { card, paymentIntentId }) {
-  const ref = await charge({ amount: payment.amount, renterId: payment.renter, carId: null, card, paymentIntentId });
+export async function payDue(payment, { card, paymentIntentId, carId }) {
+  const ref = await charge({
+    amount: payment.amount, renterId: payment.renter, carId, card, paymentIntentId,
+    expect: { kind: payment.kind, rentalId: payment.rental },
+  });
   payment.gatewayRef = ref;
   payment.status = 'held';
   return settle(payment, 1);

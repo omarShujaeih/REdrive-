@@ -94,7 +94,15 @@ export default function Checkout() {
                 </div>
                 <p className="muted">بتدفع {money(total)} هلأ، وبيضلوا محجوزين عند بوابة الدفع لحد ما الشركة توافق. إذا رفضت أو ما ردّت، بيرجعولك كاملين.</p>
                 {data.mode === 'stripe' ? (
-                  <StripePay booking={{ carId, startDate: start, endDate: end, acceptTerms: agree }} total={total} onPaid={(r) => { setRental(r); setStep(3); }} />
+                  <StripePay
+                    intentPath="/rentals/payment-intent"
+                    intentBody={{ carId, startDate: start, endDate: end }}
+                    total={total}
+                    onConfirmed={async (paymentIntentId) => {
+                      const r = await api('/rentals', { method: 'POST', body: { carId, startDate: start, endDate: end, acceptTerms: agree, paymentIntentId } });
+                      setRental(r.rental); setStep(3);
+                    }}
+                  />
                 ) : (
                   <form className="col" style={{ gap: 14 }} onSubmit={pay} noValidate>
                     <ErrorBox error={payError} />

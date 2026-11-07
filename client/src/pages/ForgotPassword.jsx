@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { ErrorBox, Field, Icon, Stepper } from '../components/ui.jsx';
 import AuthShell from '../components/AuthShell.jsx';
+import { usePolicies } from '../components/Policies.jsx';
+import { minutesWord } from '../labels.js';
 
 const HEAD = {
   1: ['نسيت كلمة المرور؟', 'اكتب إيميلك المسجّل، وبنبعتلك كود عشان تعمل كلمة مرور جديدة.'],
@@ -11,6 +13,7 @@ const HEAD = {
 };
 
 export default function ForgotPassword() {
+  const { codeMinutes } = usePolicies();
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -48,7 +51,7 @@ export default function ForgotPassword() {
       )}
       {step === 2 && (
         <form className="col" style={{ gap: 16 }} onSubmit={reset}>
-          <p className="muted">إذا الإيميل مسجّل عنا، بعتنا كود على <b className="ltr" style={{ color: 'var(--ink)' }}>{email}</b>. الكود صالح لمدة 15 دقيقة.</p>
+          <p className="muted">إذا الإيميل مسجّل عنا، بعتنا كود على <b className="ltr" style={{ color: 'var(--ink)' }}>{email}</b>. الكود صالح لمدة {minutesWord(codeMinutes)}.</p>
           {devCode && <div className="dev-code"><Icon name="info" size={18} />وضع التجربة: الكود هو <b className="ltr">{devCode}</b></div>}
           <Field label="الكود"><input className="input ltr otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} required value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} /></Field>
           <div className="form-grid">

@@ -4,7 +4,8 @@ import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { ErrorBox, Field, Icon, Stepper } from '../components/ui.jsx';
 import AuthShell from '../components/AuthShell.jsx';
-import { CITIES, DOC_LABEL } from '../labels.js';
+import { usePolicies } from '../components/Policies.jsx';
+import { CITIES, DOC_LABEL, minutesWord } from '../labels.js';
 
 const DOCS = { renter: ['nationalId', 'drivingLicense'], company: ['commercialRegister', 'companyLicense'] };
 const STEPS = ['info', 'phone', 'email', 'docs', 'done'];
@@ -21,6 +22,7 @@ export default function Register() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { user, login, setUser } = useAuth();
+  const { codeMinutes } = usePolicies();
   const [step, setStep] = useState('info');
   const [role, setRole] = useState(params.get('role') === 'company' ? 'company' : 'renter');
   const [f, setF] = useState({ name: '', email: '', prefix: '+970', phone: '', password: '', password2: '', city: 'ramallah', dateOfBirth: '', gender: '' });
@@ -142,7 +144,7 @@ export default function Register() {
 
       {(step === 'phone' || step === 'email') && (
         <form className="col" style={{ gap: 16 }} onSubmit={step === 'phone' ? verifyPhone : verifyEmail}>
-          <p className="muted">الكود انبعت على <b className="ltr" style={{ color: 'var(--ink)' }}>{step === 'phone' ? user?.phone : user?.email}</b>، وصالح لمدة 15 دقيقة.</p>
+          <p className="muted">الكود انبعت على <b className="ltr" style={{ color: 'var(--ink)' }}>{step === 'phone' ? user?.phone : user?.email}</b>، وصالح لمدة {minutesWord(codeMinutes)}.</p>
           <Field label="كود التحقق"><input className="input ltr otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} required value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} /></Field>
           <button type="submit" className="btn lg block" disabled={busy || code.length !== 6}>{busy ? 'عم نتأكد…' : 'تأكيد'}</button>
           <button type="button" className="btn ghost" disabled={busy} onClick={() => resend(step)}>ما وصلني، ابعت كود جديد</button>

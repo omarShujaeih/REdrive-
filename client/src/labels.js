@@ -106,3 +106,5 @@ export const dayName = (day) => DAY_NAMES[new Date(`${day}T12:00:00`).getDay()];
 
 // First letter for avatars, skipping the Arabic article ("الريادة" -> "ر").
 export const initial = (name = '') => (name.replace(/^ال(?=\S{2})/, '')[0] || name[0] || '');
+// "15 دقيقة", "10 دقائق", "دقيقتين"
+export const minutesWord = (n) => (n === 1 ? 'دقيقة' : n === 2 ? 'دقيقتين' : n >= 3 && n <= 10 ? `${n} دقائق` : `${n} دقيقة`);

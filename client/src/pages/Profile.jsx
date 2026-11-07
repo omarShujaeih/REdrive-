@@ -3,18 +3,32 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { ErrorBox, Field, Icon, StatusBadge } from '../components/ui.jsx';
-import { CITIES, ROLE, USER_STATUS, companyHours } from '../labels.js';
+import { CITIES, ROLE, USER_STATUS, companyHours, initial } from '../labels.js';
 import { HoursEditor } from '../components/Hours.jsx';
 
 export default function Profile() {
   const { user, setUser, setToast } = useAuth();
+  const isCompany = user.role === 'company';
+  const loc = user.company?.location || {};
   const [f, setF] = useState({
     name: user.name, city: user.city || '', description: user.company?.description || '', companyPhone: user.company?.phone || '',
-    ...(user.role === 'company' && { hours: companyHours(user) }),
+    ...(isCompany && { hours: companyHours(user), address: user.company?.address || '', lat: loc.lat ?? '', lng: loc.lng ?? '' }),
   });
   const [pw, setPw] = useState({ current: '', next: '' });
   const [error, setError] = useState('');
-  const isCompany = user.role === 'company';
+  const [locating, setLocating] = useState(false);
+
+  // Fill the branch coordinates from the device (the company is usually at the branch when setting this up).
+  const useMyLocation = () => {
+    if (!navigator.geolocation) return setError('المتصفح ما بيدعم تحديد الموقع.');
+    setLocating(true); setError('');
+    navigator.geolocation.getCurrentPosition(
+      (p) => { setF((x) => ({ ...x, lat: p.coords.latitude.toFixed(6), lng: p.coords.longitude.toFixed(6) })); setLocating(false); },
+      () => { setError('ما قدرنا نحدد موقعك. اسمح للمتصفح بالموقع أو اكتب الإحداثيات.'); setLocating(false); },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
+  const hasLoc = f.lat !== '' && f.lng !== '' && f.lat != null && f.lng != null;
 
   const save = async (e) => {
     e.preventDefault(); setError('');
@@ -29,7 +43,7 @@ export default function Profile() {
     <div className="page-head">
       {!isCompany && <nav className="crumbs" aria-label="مسار الصفحة"><ol><li><Link to="/">الرئيسية</Link></li><li><span aria-current="page">حسابي</span></li></ol></nav>}
       <div className="profile-head">
-        <span className="avatar xl" aria-hidden="true">{user.name[0]}</span>
+        <span className="avatar xl" aria-hidden="true">{initial(user.name)}</span>
         <div className="page-head-copy">
           <span className="kicker">{isCompany ? 'إعدادات الشركة' : ROLE[user.role]}</span>
           <h1>{user.name}</h1>
@@ -60,7 +74,19 @@ export default function Profile() {
         <Field label="المدينة"><select className="input" value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })}><option value="">—</option>{Object.entries(CITIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
         {isCompany && (
           <>
-            <Field label="العنوان"><input className="input" value={user.company?.address || ''} disabled /></Field>
+            <Field label="عنوان الفرع" hint="بيظهر للزبائن بصفحة الشركة وبتفاصيل الحجز."><input className="input" required autoComplete="street-address" value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} /></Field>
+            <div className="field">
+              <span className="bold">موقع الفرع على الخريطة</span>
+              <span className="hint">بيساعد الزبائن يلاقوا سياراتك بالبحث على الخريطة. اتركهم فاضيين إذا ما بدك تحدد موقع.</span>
+              <div className="form-grid">
+                <input className="input ltr" inputMode="decimal" placeholder="خط العرض (lat)" value={f.lat} onChange={(e) => setF({ ...f, lat: e.target.value })} aria-label="خط العرض" />
+                <input className="input ltr" inputMode="decimal" placeholder="خط الطول (lng)" value={f.lng} onChange={(e) => setF({ ...f, lng: e.target.value })} aria-label="خط الطول" />
+              </div>
+              <div className="row" style={{ gap: 8 }}>
+                <button type="button" className="btn secondary sm" onClick={useMyLocation} disabled={locating}><Icon name="pin" size={18} />{locating ? 'عم نحدد موقعك…' : 'استخدم موقعي الحالي'}</button>
+                {hasLoc && <a className="btn ghost sm" href={`https://www.google.com/maps?q=${f.lat},${f.lng}`} target="_blank" rel="noreferrer"><Icon name="map" size={18} />شوفه على الخريطة</a>}
+              </div>
+            </div>
             <Field label="هاتف الشركة"><input className="input ltr" inputMode="tel" value={f.companyPhone} onChange={(e) => setF({ ...f, companyPhone: e.target.value })} /></Field>
             <Field label="نبذة عن الشركة"><textarea className="input" value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
             <div className="field">

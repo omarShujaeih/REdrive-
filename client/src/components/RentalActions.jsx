@@ -1,8 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { ErrorBox, Field, Modal, StarInput } from './ui.jsx';
+import StripePay from './StripePay.jsx';
 import { carName, countDays, dayName, daysWord, extraDaysText, fmtDateTime, isoDay, money, slotsForDay } from '../labels.js';
+
+// The server's payment mode: 'stripe' (real card form) or 'sim' (sandbox card fields); null while loading.
+export function usePaymentMode() {
+  const [mode, setMode] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    api('/rentals/payment-mode').then((r) => alive && setMode(r.mode)).catch(() => alive && setMode('sim'));
+    return () => { alive = false; };
+  }, []);
+  return mode;
+}
 
 // Sandbox card fields shared by the extension and late-fee payments.
 function useCard() {
@@ -21,7 +33,7 @@ function useCard() {
   const fields = (
     <>
       <Field label="رقم البطاقة" error={errs.number}><input className="input ltr" inputMode="numeric" autoComplete="cc-number" value={card.number} onChange={(e) => setCard({ ...card, number: e.target.value })} placeholder="4242 4242 4242 4242" /></Field>
-      <div className="grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+      <div className="form-grid">
         <Field label="تاريخ الانتهاء" error={errs.exp}><input className="input ltr" autoComplete="cc-exp" placeholder="MM/YY" value={card.exp} onChange={(e) => setCard({ ...card, exp: e.target.value })} /></Field>
         <Field label="رمز الأمان (CVV)" error={errs.cvv}><input className="input ltr" inputMode="numeric" autoComplete="cc-csc" value={card.cvv} onChange={(e) => setCard({ ...card, cvv: e.target.value })} /></Field>
       </div>
@@ -33,15 +45,42 @@ function useCard() {
 
 const payError = (err) => (err.status === 402 ? 'البنك رفض العملية، فما انخصم منك إشي. تأكد من بيانات البطاقة وجرّب مرة ثانية.' : err.message);
 
-// Renter asks to return the car later; the extra days are paid now and held until the company decides.
-export function ExtensionModal({ rental, minHoursBefore, onClose, onDone }) {
-  const { setToast } = useAuth();
-  const currentEnd = new Date(rental.endDate);
-  const [day, setDay] = useState(isoDay(currentEnd.getTime() + 86400000));
-  const [time, setTime] = useState(`${String(currentEnd.getHours()).padStart(2, '0')}:00`);
+// Card step of a payment: the Stripe form in Stripe mode, the sandbox fields otherwise.
+// submit(payment) sends the action with { card } (sandbox) or { paymentIntentId } (Stripe).
+function PayStep({ mode, intentPath, intentBody, amount, label, disabled, submit, onClose, cancelLabel }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const { fields, validate } = useCard();
+  if (!mode) return <span className="muted small">عم نجهّز الدفع…</span>;
+  if (mode === 'stripe') {
+    return <StripePay intentPath={intentPath} intentBody={intentBody} total={amount} label={label} disabled={disabled} onConfirmed={(paymentIntentId) => submit({ paymentIntentId })} onCancel={onClose} cancelLabel={cancelLabel} />;
+  }
+  const send = async (e) => {
+    e.preventDefault();
+    const card = validate();
+    if (!card || disabled) return;
+    setBusy(true); setError('');
+    try { await submit({ card }); } catch (err) { setError(payError(err)); } finally { setBusy(false); }
+  };
+  return (
+    <form className="col" onSubmit={send} noValidate>
+      {fields}
+      <ErrorBox error={error} />
+      <div className="row">
+        <button type="submit" className="btn" disabled={busy || disabled}>{busy ? 'عم نتأكد من الدفع…' : label}</button>
+        <button type="button" className="btn secondary" onClick={onClose}>{cancelLabel}</button>
+      </div>
+    </form>
+  );
+}
+
+// Renter asks to return the car later; the extra days are paid now and held until the company decides.
+export function ExtensionModal({ rental, minHoursBefore, onClose, onDone }) {
+  const { setToast } = useAuth();
+  const mode = usePaymentMode();
+  const currentEnd = new Date(rental.endDate);
+  const [day, setDay] = useState(isoDay(currentEnd.getTime() + 86400000));
+  const [time, setTime] = useState(`${String(currentEnd.getHours()).padStart(2, '0')}:00`);
   const slots = slotsForDay(rental.company, day);
   const t = slots.includes(time) ? time : slots[0];
   const newEnd = t ? new Date(`${day}T${t}:00`) : null;
@@ -49,35 +88,32 @@ export function ExtensionModal({ rental, minHoursBefore, onClose, onDone }) {
   const extraDays = valid ? countDays(currentEnd, newEnd) : 0;
   const amount = extraDays * rental.dailyPrice;
 
-  const send = async (e) => {
-    e.preventDefault();
-    const card = validate();
-    if (!card || !valid) return;
-    setBusy(true); setError('');
-    try {
-      await api(`/rentals/${rental._id}/extensions`, { method: 'POST', body: { endDate: newEnd, card } });
-      setToast('انبعت طلب التمديد للشركة'); onDone();
-    } catch (err) { setError(payError(err)); } finally { setBusy(false); }
+  const submit = async (payment) => {
+    await api(`/rentals/${rental._id}/extensions`, { method: 'POST', body: { endDate: newEnd, ...payment } });
+    setToast('انبعت طلب التمديد للشركة'); onDone();
   };
 
   return (
     <Modal title="اطلب تمديد" onClose={onClose}>
-      <form className="col" onSubmit={send} noValidate>
-        <span className="muted small">موعد التسليم الحالي: <b>{fmtDateTime(currentEnd)}</b>. التمديد لازم ينطلب قبل التسليم بـ{minHoursBefore} ساعة على الأقل.</span>
-        <div className="time-row">
-          <Field label="يوم التسليم الجديد"><input className="input" type="date" value={day} min={isoDay(currentEnd)} onChange={(e) => setDay(e.target.value)} /></Field>
-          <Field label="الساعة"><select className="input" value={t || ''} disabled={!slots.length} onChange={(e) => setTime(e.target.value)}>{slots.length ? slots.map((h) => <option key={h} value={h}>{h}</option>) : <option value="">—</option>}</select></Field>
-        </div>
-        {valid ? (
-          <div className="alert small">{extraDaysText(extraDays)} · <b>{money(amount)}</b>. بتدفعها هلأ، وإذا الشركة رفضت أو ما ردّت بترجعلك كاملة.</div>
-        ) : <div className="alert amber small">{slots.length ? 'الموعد الجديد لازم يكون بعد موعد التسليم الحالي.' : `الفرع مسكّر يوم ${dayName(day)}. اختار يوم ثاني للتسليم.`}</div>}
-        {fields}
-        <ErrorBox error={error} />
-        <div className="row">
-          <button className="btn" disabled={busy || !valid}>{busy ? 'عم نبعت الطلب…' : `ادفع ${money(amount)} وابعث الطلب`}</button>
-          <button type="button" className="btn secondary" onClick={onClose}>تراجع</button>
-        </div>
-      </form>
+      <span className="muted small">موعد التسليم الحالي: <b>{fmtDateTime(currentEnd)}</b>. التمديد لازم ينطلب قبل التسليم بـ{minHoursBefore} ساعة على الأقل.</span>
+      <div className="time-row">
+        <Field label="يوم التسليم الجديد"><input className="input" type="date" value={day} min={isoDay(currentEnd)} onChange={(e) => setDay(e.target.value)} /></Field>
+        <Field label="الساعة"><select className="input" value={t || ''} disabled={!slots.length} onChange={(e) => setTime(e.target.value)}>{slots.length ? slots.map((h) => <option key={h} value={h}>{h}</option>) : <option value="">—</option>}</select></Field>
+      </div>
+      {valid ? (
+        <div className="alert small">{extraDaysText(extraDays)} · <b>{money(amount)}</b>. بتدفعها هلأ، وإذا الشركة رفضت أو ما ردّت بترجعلك كاملة.</div>
+      ) : <div className="alert amber small">{slots.length ? 'الموعد الجديد لازم يكون بعد موعد التسليم الحالي.' : `الفرع مسكّر يوم ${dayName(day)}. اختار يوم ثاني للتسليم.`}</div>}
+      <PayStep
+        mode={mode}
+        intentPath={`/rentals/${rental._id}/extensions/payment-intent`}
+        intentBody={{ endDate: newEnd }}
+        amount={amount}
+        label={`ادفع ${money(amount)} وابعث الطلب`}
+        disabled={!valid}
+        submit={submit}
+        onClose={onClose}
+        cancelLabel="تراجع"
+      />
     </Modal>
   );
 }
@@ -85,30 +121,24 @@ export function ExtensionModal({ rental, minHoursBefore, onClose, onDone }) {
 // Renter pays the late-return fee the company recorded.
 export function LateFeeModal({ rental, amount, onClose, onDone }) {
   const { setToast } = useAuth();
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const { fields, validate } = useCard();
-  const pay = async (e) => {
-    e.preventDefault();
-    const card = validate();
-    if (!card) return;
-    setBusy(true); setError('');
-    try {
-      await api(`/rentals/${rental._id}/late-fee/pay`, { method: 'POST', body: { card } });
-      setToast('انْدفعت رسوم التأخير'); onDone();
-    } catch (err) { setError(payError(err)); } finally { setBusy(false); }
+  const mode = usePaymentMode();
+  const submit = async (payment) => {
+    await api(`/rentals/${rental._id}/late-fee/pay`, { method: 'POST', body: payment });
+    setToast('انْدفعت رسوم التأخير'); onDone();
   };
   return (
     <Modal title="ادفع رسوم التأخير" onClose={onClose}>
-      <form className="col" onSubmit={pay} noValidate>
-        <span className="muted small">رجّعت السيارة {fmtDateTime(rental.returnedAt)}، وموعد التسليم كان {fmtDateTime(rental.endDate)}. انحسب {daysWord(rental.lateDays)} تأخير.</span>
-        {fields}
-        <ErrorBox error={error} />
-        <div className="row">
-          <button className="btn" disabled={busy}>{busy ? 'عم نتأكد من الدفع…' : `ادفع ${money(amount)}`}</button>
-          <button type="button" className="btn secondary" onClick={onClose}>بعدين</button>
-        </div>
-      </form>
+      <span className="muted small">رجّعت السيارة {fmtDateTime(rental.returnedAt)}، وموعد التسليم كان {fmtDateTime(rental.endDate)}. انحسب {daysWord(rental.lateDays)} تأخير.</span>
+      <PayStep
+        mode={mode}
+        intentPath={`/rentals/${rental._id}/late-fee/payment-intent`}
+        intentBody={{}}
+        amount={amount}
+        label={`ادفع ${money(amount)}`}
+        submit={submit}
+        onClose={onClose}
+        cancelLabel="بعدين"
+      />
     </Modal>
   );
 }

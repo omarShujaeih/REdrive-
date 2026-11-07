@@ -8,7 +8,10 @@ import { money } from '../labels.js';
 const KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 const stripePromise = KEY ? loadStripe(KEY, { locale: 'ar' }) : null;
 
-function Form({ booking, total, onPaid }) {
+// Stripe card form, shared by the booking, extension and late-fee payments.
+// intentPath + intentBody ask the server for a PaymentIntent of the right amount; once the card is
+// confirmed, onConfirmed(paymentIntentId) finishes the action (send the booking, the extension, pay the fee).
+function Form({ intentPath, intentBody, total, label, disabled = false, onConfirmed, onCancel, cancelLabel = 'تراجع' }) {
   const stripe = useStripe();
   const elements = useElements();
   const [busy, setBusy] = useState(false);
@@ -16,25 +19,27 @@ function Form({ booking, total, onPaid }) {
 
   const pay = async (e) => {
     e.preventDefault();
-    if (!stripe || !elements) return;
+    if (!stripe || !elements || disabled) return;
     setBusy(true); setError('');
     try {
-      const { clientSecret, paymentIntentId } = await api('/rentals/payment-intent', { method: 'POST', body: booking });
+      const { clientSecret, paymentIntentId } = await api(intentPath, { method: 'POST', body: intentBody });
       const result = await stripe.confirmCardPayment(clientSecret, { payment_method: { card: elements.getElement(CardElement) } });
       if (result.error) throw new Error(`ما تمّت عملية الدفع: ${result.error.message}`);
-      const r = await api('/rentals', { method: 'POST', body: { ...booking, paymentIntentId } });
-      onPaid(r.rental);
+      await onConfirmed(paymentIntentId);
     } catch (err) { setError(err.message); } finally { setBusy(false); }
   };
 
   return (
-    <form className="col" onSubmit={pay}>
+    <form className="col" style={{ gap: 14 }} onSubmit={pay}>
       <ErrorBox error={error} />
-      <div className="input" style={{ display: 'flex', alignItems: 'center', direction: 'ltr' }}>
-        <div style={{ width: '100%' }}><CardElement options={{ hidePostalCode: true, style: { base: { fontSize: '16px', color: '#0F1A2E' } } }} /></div>
+      <div className="input stripe-card">
+        <CardElement options={{ hidePostalCode: true, style: { base: { fontSize: '16px', color: '#0F1A2E' } } }} />
       </div>
       <span className="muted small">وضع الاختبار (Stripe Test): استعمل البطاقة 4242 4242 4242 4242 بأي تاريخ مستقبلي وأي CVV.</span>
-      <button className="btn" disabled={busy || !stripe}>{busy ? 'عم نتأكد من الدفع…' : `ادفع ${money(total)}`}</button>
+      <div className="row">
+        <button type="submit" className="btn" disabled={busy || disabled || !stripe}>{busy ? 'عم نتأكد من الدفع…' : label || `ادفع ${money(total)}`}</button>
+        {onCancel && <button type="button" className="btn secondary" onClick={onCancel}>{cancelLabel}</button>}
+      </div>
     </form>
   );
 }

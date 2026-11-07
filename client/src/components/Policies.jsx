@@ -6,7 +6,7 @@ import { Modal } from './ui.jsx';
 // these defaults only cover the first render and offline previews.
 const DEFAULTS = {
   responseHours: 12, freeCancelHoursAfterAccept: 6, lateCancelChargeRate: 0.6, noShowGraceHours: 2,
-  lateGraceHours: 1, extensionMinHoursBefore: 12, termsVersion: '2026-11',
+  lateGraceHours: 1, extensionMinHoursBefore: 12, termsVersion: '2026-11', codeMinutes: 15,
 };
 
 export function usePolicies() {

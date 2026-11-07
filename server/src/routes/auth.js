@@ -142,12 +142,30 @@ router.post('/reset-password', wrap(async (req, res) => {
 router.get('/me', auth, (req, res) => res.json({ user: req.user.toPublic() }));
 
 router.patch('/me', auth, wrap(async (req, res) => {
-  const { name, city, description, companyPhone, hours } = req.body;
+  const { name, city, description, companyPhone, hours, address, lat, lng } = req.body;
   if (name) req.user.name = name;
   if (city !== undefined) req.user.city = city;
   if (req.user.role === 'company') {
     if (description !== undefined) req.user.company.description = description;
     if (companyPhone !== undefined) req.user.company.phone = companyPhone;
+    if (address !== undefined) {
+      const clean = String(address).trim();
+      if (!clean) throw httpError(400, 'اكتب عنوان الشركة');
+      req.user.company.address = clean.slice(0, 200);
+    }
+    // Branch location on the map: both empty clears it, otherwise both must be valid coordinates.
+    if (lat !== undefined && lng !== undefined) {
+      const empty = (v) => v === '' || v === null;
+      if (empty(lat) && empty(lng)) {
+        req.user.company.location = { lat: undefined, lng: undefined };
+      } else {
+        const la = Number(lat); const lo = Number(lng);
+        if (empty(lat) || empty(lng) || !Number.isFinite(la) || !Number.isFinite(lo) || Math.abs(la) > 90 || Math.abs(lo) > 180) {
+          throw httpError(400, 'إحداثيات موقع الفرع مش صحيحة');
+        }
+        req.user.company.location = { lat: la, lng: lo };
+      }
+    }
     if (hours !== undefined) {
       try { req.user.company.hours = parseHours(hours); } catch (err) { throw httpError(400, err.message); }
     }

@@ -39,9 +39,9 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.get('/api/policies', (req, res) => {
   const {
     responseHours, freeCancelHoursAfterAccept, lateCancelChargeRate, noShowGraceHours,
-    lateGraceHours, extensionMinHoursBefore, termsVersion,
+    lateGraceHours, extensionMinHoursBefore, termsVersion, codeMinutes,
   } = rules;
-  res.json({ responseHours, freeCancelHoursAfterAccept, lateCancelChargeRate, noShowGraceHours, lateGraceHours, extensionMinHoursBefore, termsVersion });
+  res.json({ responseHours, freeCancelHoursAfterAccept, lateCancelChargeRate, noShowGraceHours, lateGraceHours, extensionMinHoursBefore, termsVersion, codeMinutes });
 });
 
 // Production (e.g. the Render demo): serve the built React client from the same origin,
