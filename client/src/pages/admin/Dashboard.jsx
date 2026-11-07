@@ -1,10 +1,12 @@
 import { api } from '../../api.js';
+import { useLiveRefresh } from '../../auth.jsx';
 import { PageTitle } from '../../components/Layout.jsx';
 import { ErrorBox, Icon, Loading, StatTile, useLoad } from '../../components/ui.jsx';
 import { fmtDate, initial, money } from '../../labels.js';
 
 export default function AdminDashboard() {
-  const { data: d, loading, error } = useLoad(() => api('/admin/dashboard'));
+  const { data: d, loading, error, refresh } = useLoad(() => api('/admin/dashboard'));
+  useLiveRefresh(refresh);
   if (loading) return <Loading />;
   if (error) return <ErrorBox error={error} />;
   const tasks = d.pendingUsers + d.pendingCars;

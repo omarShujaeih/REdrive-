@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../../api.js';
-import { useAuth } from '../../auth.jsx';
+import { useAuth, useLiveRefresh } from '../../auth.jsx';
 import { PageTitle } from '../../components/Layout.jsx';
 import { Badge, CarImage, ErrorBox, Field, Icon, Loading, Modal, StarInput, Stars, StatusBadge, useLoad } from '../../components/ui.jsx';
 import { usePolicies } from '../../components/Policies.jsx';
@@ -14,7 +14,8 @@ export default function RentalDetail() {
   const { id } = useParams();
   const { setToast } = useAuth();
   const policies = usePolicies();
-  const { data, loading, error: loadError, reload } = useLoad(() => api(`/rentals/${id}`), [id]);
+  const { data, loading, error: loadError, reload, refresh } = useLoad(() => api(`/rentals/${id}`), [id]);
+  useLiveRefresh(refresh, ['rental', 'payment']);
   const [error, setError] = useState('');
   const [stars, setStars] = useState(0);
   const [comment, setComment] = useState('');

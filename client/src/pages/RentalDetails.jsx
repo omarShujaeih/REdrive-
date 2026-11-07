@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api.js';
+import { useLiveRefresh } from '../auth.jsx';
 import { CancelModal, ExtensionModal, LateFeeModal, RenterReviewModal, canRenterCancel } from '../components/RentalActions.jsx';
 import { Badge, CarImage, ErrorBox, Icon, Loading, StatusBadge, useLoad } from '../components/ui.jsx';
 import { EXTENSION_STATUS, RENTAL_STATUS, carName, initial, daysWord, fmtDateTime, lateText, money, timeLeft } from '../labels.js';
@@ -10,8 +11,9 @@ const KIND = { extension: 'تمديد', late_fee: 'رسوم تأخير' };
 
 export default function RentalDetails() {
   const { id } = useParams();
-  const { data, loading, error, reload } = useLoad(() => api(`/rentals/${id}`), [id]);
+  const { data, loading, error, reload, refresh } = useLoad(() => api(`/rentals/${id}`), [id]);
   const [modal, setModal] = useState('');
+  useLiveRefresh(refresh, ['rental', 'payment']);
   if (loading) return <Loading lines={5} />;
   if (error) return <main className="container page-body"><ErrorBox error={error} /></main>;
   const { rental: r, payment, extras = [], cancellation, extension, late } = data;

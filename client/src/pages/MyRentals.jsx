@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
+import { useLiveRefresh } from '../auth.jsx';
 import { CancelModal, RenterReviewModal, canRenterCancel } from '../components/RentalActions.jsx';
 import { CarImage, Empty, ErrorBox, Icon, Loading, PageHead, StatusBadge, useLoad } from '../components/ui.jsx';
 import { RENTAL_STATUS, carName, daysWord, fmtDateTime, money } from '../labels.js';
@@ -15,7 +16,8 @@ export default function MyRentals() {
   const [tab, setTab] = useState('current');
   const [cancel, setCancel] = useState(null);
   const [review, setReview] = useState(null);
-  const { data, loading, error, reload } = useLoad(() => api('/rentals/mine'));
+  const { data, loading, error, reload, refresh } = useLoad(() => api('/rentals/mine'));
+  useLiveRefresh(refresh, ['rental', 'payment']);
   const all = data?.rentals || [];
   const current = TABS.find((t) => t.k === tab);
   const list = all.filter((r) => current.s.includes(r.status));

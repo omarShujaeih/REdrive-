@@ -305,16 +305,21 @@ export function ErrorBox({ error }) {
   return <div className="alert red" role="alert">{error}</div>;
 }
 
-// Small async-loader hook: const { data, error, loading, reload } = useLoad(() => api('/x'), [deps])
+// Small async-loader hook: const { data, error, loading, reload, refresh } = useLoad(() => api('/x'), [deps])
+// reload() shows the loading state again; refresh() refetches quietly and keeps the current data on screen.
 export function useLoad(fn, deps = []) {
   const [state, setState] = useState({ data: null, error: '', loading: true });
-  const [tick, setTick] = useState(0);
+  const [tick, setTick] = useState({ n: 0, quiet: false });
   useEffect(() => {
     let alive = true;
-    setState((s) => ({ ...s, loading: true }));
+    if (!tick.quiet) setState((s) => ({ ...s, loading: true }));
     fn().then((data) => alive && setState({ data, error: '', loading: false }))
-      .catch((e) => alive && setState({ data: null, error: e.message, loading: false }));
+      .catch((e) => alive && setState((s) => (tick.quiet && s.data ? s : { data: null, error: e.message, loading: false })));
     return () => { alive = false; };
-  }, [...deps, tick]); // eslint-disable-line react-hooks/exhaustive-deps
-  return { ...state, reload: () => setTick((t) => t + 1) };
+  }, [...deps, tick.n]); // eslint-disable-line react-hooks/exhaustive-deps
+  return {
+    ...state,
+    reload: () => setTick((t) => ({ n: t.n + 1, quiet: false })),
+    refresh: () => setTick((t) => ({ n: t.n + 1, quiet: true })),
+  };
 }

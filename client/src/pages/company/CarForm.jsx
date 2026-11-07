@@ -5,6 +5,7 @@ import { useAuth } from '../../auth.jsx';
 import Calendar from '../../components/Calendar.jsx';
 import { PageTitle } from '../../components/Layout.jsx';
 import { ErrorBox, Field, Icon, Loading, StatusBadge } from '../../components/ui.jsx';
+import LocationField, { locationError } from '../../components/LocationField.jsx';
 import { bookedDays } from '../CarDetails.jsx';
 import { BRANDS, CAR_STATUS, CITIES, FEATURES, FUEL, TRANSMISSION, isoDay, money, fmtDateTime } from '../../labels.js';
 
@@ -39,6 +40,9 @@ export default function CarForm() {
   const [bookings, setBookings] = useState([]);
   const [car, setCar] = useState(null);
   const [files, setFiles] = useState({ photos: [], registration: null, insurance: null });
+  // Pick-up point on the map: a new car starts from the company's saved location.
+  const [loc, setLoc] = useState({ lat: user.company?.location?.lat ?? '', lng: user.company?.location?.lng ?? '' });
+  const [removed, setRemoved] = useState([]);
   const [ai, setAi] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -54,6 +58,7 @@ export default function CarForm() {
         availableFrom: isoDay(c.availableFrom), availableTo: isoDay(c.availableTo), features: c.features,
       });
       setBlocked(c.blockedDates.map(isoDay));
+      setLoc({ lat: c.pickupLocation?.lat ?? '', lng: c.pickupLocation?.lng ?? '' });
     }).catch((e) => setError(e.message)).finally(() => setLoading(false));
   }, [id, isNew]);
 
@@ -81,11 +86,18 @@ export default function CarForm() {
     if (isNew && !files.photos.length) missing.push('الصور');
     if (isNew && !files.registration) missing.push('رخصة المركبة');
     if (isNew && !files.insurance) missing.push('التأمين');
-    if (missing.length) { setError(`في معلومات ناقصة: ${missing.join('، ')}`); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+    const stop = (msg) => { setError(msg); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+    if (missing.length) return stop(`في معلومات ناقصة: ${missing.join('، ')}`);
+    if (locationError(loc)) return stop(locationError(loc));
+    if (!isNew && car.photos.length - removed.length + files.photos.length < 1) return stop('لازم تضل صورة وحدة على الأقل للسيارة.');
     const fd = new FormData();
     Object.entries(f).forEach(([k, v]) => fd.append(k, k === 'features' ? JSON.stringify(v) : v));
     if (ai) fd.append('aiSuggestedPrice', ai.price);
     fd.append('blockedDates', JSON.stringify(blocked));
+    // Always send the coordinates, so saving the form keeps (or clears) the car's place on the map.
+    fd.append('lat', loc.lat ?? '');
+    fd.append('lng', loc.lng ?? '');
+    if (removed.length) fd.append('removePhotos', JSON.stringify(removed));
     files.photos.forEach((p) => fd.append('photos', p));
     if (files.registration) fd.append('registration', files.registration);
     if (files.insurance) fd.append('insurance', files.insurance);
@@ -117,6 +129,13 @@ export default function CarForm() {
             <Field label="مكان الاستلام"><input className="input" value={f.pickupAddress} onChange={set('pickupAddress')} /></Field>
             <Field label="رقم اللوحة" hint="بتشوفه إنت والإدارة بس."><input className="input ltr" value={f.plateNumber} onChange={set('plateNumber')} /></Field>
           </div>
+          <LocationField
+            label="موقع الاستلام على الخريطة"
+            hint="بيخلي السيارة تظهر بالبحث على الخريطة وبالترتيب حسب القرب."
+            value={loc}
+            onChange={setLoc}
+            presets={[{ label: 'موقع الشركة', icon: 'building', value: user.company?.location }]}
+          />
         </section>
 
         <section className="panel" aria-labelledby="price-title">
@@ -182,7 +201,22 @@ export default function CarForm() {
         <section className="panel" aria-labelledby="docs-title">
           <h2 id="docs-title" className="panel-title"><span className="ic-tile sm"><Icon name="doc" size={16} /></span>الصور والوثائق</h2>
           <p className="muted small">الوثائق بتشوفها إنت والإدارة بس، وما بتظهر للمستأجرين. {!isNew && 'تغيير الماركة أو الموديل أو السنة أو اللوحة أو الوثائق بيرجّع السيارة لمراجعة الإدارة.'}</p>
-          {car?.photos?.length > 0 && <div className="thumbs-row">{car.photos.map((p, i) => <img key={p} src={p} alt={`صورة ${i + 1} لـ${f.brand} ${f.model}`} />)}</div>}
+          {car?.photos?.length > 0 && (
+            <div className="thumbs-row" role="group" aria-label="صور السيارة الحالية">
+              {car.photos.map((p, i) => {
+                const gone = removed.includes(p);
+                return (
+                  <div key={p} className={`photo-tile${gone ? ' removed' : ''}`}>
+                    <img src={p} alt={`صورة ${i + 1} لـ${f.brand} ${f.model}`} />
+                    <button type="button" aria-pressed={gone} aria-label={gone ? `رجّع الصورة ${i + 1}` : `شيل الصورة ${i + 1}`} onClick={() => setRemoved((r) => (gone ? r.filter((x) => x !== p) : [...r, p]))}>
+                      <Icon name={gone ? 'arrowRight' : 'close'} size={14} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {removed.length > 0 && <span className="small" style={{ color: 'var(--red)' }}>{removed.length === 1 ? 'صورة وحدة رح تنشال' : `${removed.length} صور رح تنشال`} لما تحفظ.</span>}
           <FilePick label={isNew ? 'صور السيارة' : 'أضف صور'} hint="لحد 12 صورة" accept="image/*" multiple files={files.photos} onChange={(photos) => setFiles({ ...files, photos })} />
           <div className="form-grid">
             <FilePick label="رخصة المركبة" hint="صورة أو PDF" accept="image/*,application/pdf" files={files.registration} onChange={(registration) => setFiles({ ...files, registration })} />

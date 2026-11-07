@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api.js';
-import { useAuth } from '../../auth.jsx';
+import { useAuth, useLiveRefresh } from '../../auth.jsx';
 import { PageTitle } from '../../components/Layout.jsx';
 import { Empty, ErrorBox, Field, Icon, Loading, Stars, useLoad } from '../../components/ui.jsx';
 import { carName, daysWord, fmtDateTime, initial, money, timeLeft } from '../../labels.js';
 
 export default function Requests() {
   const { setToast } = useAuth();
-  const { data, loading, reload } = useLoad(() => api('/rentals/mine?status=pending'));
+  const { data, loading, reload, refresh } = useLoad(() => api('/rentals/mine?status=pending'));
   const active = useLoad(() => api('/rentals/mine?status=active'));
+  useLiveRefresh(() => { refresh(); active.refresh(); }, ['rental', 'payment']);
   const extensionRequests = (active.data?.rentals || []).flatMap((r) => (r.extensions || []).filter((e) => e.status === 'pending').map((e) => ({ rental: r, ext: e })));
   const [rejecting, setRejecting] = useState(null);
   const [reason, setReason] = useState('');

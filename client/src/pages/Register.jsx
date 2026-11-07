@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { ErrorBox, Field, Icon, Stepper } from '../components/ui.jsx';
 import AuthShell from '../components/AuthShell.jsx';
+import LocationField, { locationError } from '../components/LocationField.jsx';
+import { homeFor } from './Login.jsx';
 import { usePolicies } from '../components/Policies.jsx';
 import { CITIES, DOC_LABEL, minutesWord } from '../labels.js';
 
@@ -27,6 +29,8 @@ export default function Register() {
   const [role, setRole] = useState(params.get('role') === 'company' ? 'company' : 'renter');
   const [f, setF] = useState({ name: '', email: '', prefix: '+970', phone: '', password: '', password2: '', city: 'ramallah', dateOfBirth: '', gender: '' });
   const [company, setCompany] = useState({ address: '', companyPhone: '', description: '' });
+  const [companyLoc, setCompanyLoc] = useState({ lat: '', lng: '' });
+  const [cooldown, setCooldown] = useState(0);
   const [files, setFiles] = useState({});
   const [code, setCode] = useState('');
   const [devCode, setDevCode] = useState('');
@@ -44,6 +48,13 @@ export default function Register() {
     else setStep('done');
   }, [user?._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // "Send a new code" waits 30 seconds between sends.
+  useEffect(() => {
+    if (cooldown <= 0) return undefined;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
   const run = (fn) => async (e) => {
     e?.preventDefault();
     setBusy(true); setError(''); setNotice('');
@@ -57,23 +68,31 @@ export default function Register() {
       method: 'POST',
       body: { role, name: f.name, email: f.email, phone: `${f.prefix}${f.phone.replace(/^0/, '').replace(/\s/g, '')}`, password: f.password, city: f.city, dateOfBirth: f.dateOfBirth || undefined, gender: f.gender || undefined },
     });
-    login(r.token, r.user); setDevCode(r.devCode || ''); setCode(''); setStep('phone');
+    login(r.token, r.user); setDevCode(r.devCode || ''); setCode(''); setStep('phone'); setCooldown(30);
   });
-  const verifyPhone = run(async () => { const r = await api('/auth/verify-phone', { method: 'POST', body: { code } }); setUser(r.user); setDevCode(r.devCode || ''); setCode(''); setStep('email'); });
+  const verifyPhone = run(async () => { const r = await api('/auth/verify-phone', { method: 'POST', body: { code } }); setUser(r.user); setDevCode(r.devCode || ''); setCode(''); setStep('email'); setCooldown(30); });
   const verifyEmail = run(async () => { const r = await api('/auth/verify-email', { method: 'POST', body: { code } }); setUser(r.user); setCode(''); setStep('docs'); });
   const resend = (channel) => run(async () => {
     const r = await api('/auth/resend-code', { method: 'POST', body: { channel } });
     setDevCode(r.devCode || '');
     setNotice(channel === 'phone' ? 'بعتنالك كود جديد على جوالك.' : 'بعتنالك كود جديد على إيميلك.');
+    setCooldown(30);
   })();
   const submitDocs = run(async () => {
     const fd = new FormData();
     DOCS[role].forEach((k) => files[k] && fd.append(k, files[k]));
-    if (role === 'company') Object.entries(company).forEach(([k, v]) => fd.append(k, v));
+    if (role === 'company') {
+      if (locationError(companyLoc)) throw new Error(locationError(companyLoc));
+      Object.entries(company).forEach(([k, v]) => fd.append(k, v));
+      fd.append('lat', companyLoc.lat);
+      fd.append('lng', companyLoc.lng);
+    }
     const r = await api('/auth/documents', { method: 'POST', form: fd });
     setUser(r.user); setStep('done');
   });
 
+  // A verified account has nothing left to do here.
+  if (user?.status === 'verified') return <Navigate to={homeFor(user)} replace />;
   const current = STEPS.indexOf(step);
   const [title, sub] = HEAD[step];
   const isCompany = role === 'company';
@@ -147,7 +166,7 @@ export default function Register() {
           <p className="muted">الكود انبعت على <b className="ltr" style={{ color: 'var(--ink)' }}>{step === 'phone' ? user?.phone : user?.email}</b>، وصالح لمدة {minutesWord(codeMinutes)}.</p>
           <Field label="كود التحقق"><input className="input ltr otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} required value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} /></Field>
           <button type="submit" className="btn lg block" disabled={busy || code.length !== 6}>{busy ? 'عم نتأكد…' : 'تأكيد'}</button>
-          <button type="button" className="btn ghost" disabled={busy} onClick={() => resend(step)}>ما وصلني، ابعت كود جديد</button>
+          <button type="button" className="btn ghost" disabled={busy || cooldown > 0} onClick={() => resend(step)}>{cooldown > 0 ? `ابعت كود جديد بعد ${cooldown} ثانية` : 'ما وصلني، ابعت كود جديد'}</button>
         </form>
       )}
 
@@ -167,6 +186,7 @@ export default function Register() {
           {isCompany && (
             <>
               <Field label="عنوان الشركة الرسمي"><input className="input" required autoComplete="street-address" value={company.address} onChange={(e) => setCompany({ ...company, address: e.target.value })} /></Field>
+              <LocationField label="موقع الفرع على الخريطة (اختياري)" hint="بيخلي سياراتك تظهر بالبحث على الخريطة. بتقدر تعدّله بعدين من الإعدادات." value={companyLoc} onChange={setCompanyLoc} />
               <Field label="هاتف الشركة"><input className="input ltr" inputMode="tel" value={company.companyPhone} onChange={(e) => setCompany({ ...company, companyPhone: e.target.value })} /></Field>
               <Field label="نبذة عن الشركة"><textarea className="input" value={company.description} onChange={(e) => setCompany({ ...company, description: e.target.value })} /></Field>
             </>

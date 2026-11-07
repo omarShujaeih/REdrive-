@@ -1,13 +1,14 @@
 import { Link } from 'react-router-dom';
 import { api } from '../../api.js';
-import { useAuth } from '../../auth.jsx';
+import { useAuth, useLiveRefresh } from '../../auth.jsx';
 import { PageTitle } from '../../components/Layout.jsx';
 import { ErrorBox, Icon, Loading, StatTile, useLoad } from '../../components/ui.jsx';
 import { fmtDateTime, initial, money, timeLeft } from '../../labels.js';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { data, loading, error } = useLoad(() => api('/company/dashboard'));
+  const { data, loading, error, refresh } = useLoad(() => api('/company/dashboard'));
+  useLiveRefresh(refresh, ['rental', 'payment', 'car']);
   if (loading) return <Loading />;
   if (error) return <ErrorBox error={error} />;
   const count = (s) => data.cars.find((c) => c._id === s)?.n || 0;

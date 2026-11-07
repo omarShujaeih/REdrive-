@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../auth.jsx';
+import { useAuth, useLiveRefresh } from '../auth.jsx';
 import { Icon, Logo, Loading, useLoad } from './ui.jsx';
 import { api } from '../api.js';
 import { initial } from '../labels.js';
@@ -122,11 +122,31 @@ function PerksTicker() {
   );
 }
 
+// Renters who can't book yet (documents missing, under review or rejected) see why, on every page.
+function AccountBanner() {
+  const { user } = useAuth();
+  const { pathname } = useLocation();
+  if (!user || user.role !== 'renter' || user.status === 'verified' || pathname.startsWith('/register')) return null;
+  const [icon, text, action] = user.status === 'pending'
+    ? ['clock', 'وثائقك قيد المراجعة عند الإدارة. بتقدر تتصفح هلأ، والحجز بيصير متاح بعد التوثيق.', null]
+    : user.status === 'rejected'
+      ? ['alert', `انرفض توثيق حسابك: ${user.rejectionReason || 'راجع الوثائق'}.`, 'ارفع الوثائق من جديد']
+      : user.status === 'blocked'
+        ? ['alert', 'حسابك محظور. تواصل مع الدعم من صفحة المساعد.', null]
+        : ['info', 'كمّل توثيق حسابك (الجوال والإيميل والوثائق) عشان تقدر تحجز.', 'كمّل التسجيل'];
+  return (
+    <div className={`acct-banner ${user.status}`} role="status">
+      <div className="container"><Icon name={icon} size={18} /><span>{text}</span>{action && <Link to="/register?resume=1">{action}</Link>}</div>
+    </div>
+  );
+}
+
 export function PublicLayout() {
   return (
     <>
       <PerksTicker />
       <SiteHeader />
+      <AccountBanner />
       <Page />
       <SiteFooter />
     </>
@@ -209,7 +229,8 @@ function CompanyGate({ user }) {
 
 export function CompanyLayout() {
   const { user } = useAuth();
-  const { data } = useLoad(() => api('/rentals/mine?status=pending'), [useLocation().pathname]);
+  const { data, refresh } = useLoad(() => api('/rentals/mine?status=pending'), [useLocation().pathname]);
+  useLiveRefresh(refresh, ['rental']);
   if (user.status !== 'verified') return <CompanyGate user={user} />;
   const links = [
     { to: '/company', label: 'لوحة التحكم', icon: 'home', end: true },
@@ -229,7 +250,8 @@ export function CompanyLayout() {
 }
 
 export function AdminLayout() {
-  const { data } = useLoad(() => api('/admin/dashboard'), [useLocation().pathname]);
+  const { data, refresh } = useLoad(() => api('/admin/dashboard'), [useLocation().pathname]);
+  useLiveRefresh(refresh);
   const links = [
     { to: '/admin', label: 'نظرة عامة', icon: 'home', end: true },
     { to: '/admin/verify', label: 'توثيق الحسابات', icon: 'shield', count: data?.pendingUsers },
