@@ -77,6 +77,18 @@ const ICONS = {
   list: <><path d="M9 6.5h11M9 12h11M9 17.5h11" /><circle cx="4.75" cy="6.5" r="1" /><circle cx="4.75" cy="12" r="1" /><circle cx="4.75" cy="17.5" r="1" /></>,
   doc: <><path d="M6.5 3.5h7l4 4v13h-11z" /><path d="M13.5 3.5v4h4" /><path d="M9 12.5h6M9 16h6" /></>,
   info: <><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5" /><path d="M12 7.8v.2" /></>,
+  home: <><path d="M4 11l8-7 8 7" /><path d="M6 9.5V20h12V9.5" /><path d="M10 20v-5h4v5" /></>,
+  car: <><path d="M3.5 15.5v-3l2-5A2 2 0 0 1 7.4 6h9.2a2 2 0 0 1 1.9 1.5l2 5v3a1 1 0 0 1-1 1h-1" /><path d="M5.5 16.5h-1a1 1 0 0 1-1-1" /><path d="M9.5 16.5h5" /><path d="M4 12h16" /><circle cx="7.5" cy="16.5" r="2" /><circle cx="16.5" cy="16.5" r="2" /></>,
+  plus: <><path d="M12 5v14" /><path d="M5 12h14" /></>,
+  inbox: <><path d="M4 13.5l2.2-7.2A2 2 0 0 1 8.1 5h7.8a2 2 0 0 1 1.9 1.3L20 13.5V18a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18z" /><path d="M4 13.5h4.5l1 2h5l1-2H20" /></>,
+  chart: <><path d="M4 20h16" /><path d="M7 16v-5" /><path d="M12 16V7" /><path d="M17 16v-8" /></>,
+  settings: <><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></>,
+  logout: <><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" /><path d="M10 16l-4-4 4-4" /><path d="M6 12h10" /></>,
+  users: <><circle cx="9" cy="8.5" r="3.5" /><path d="M2.5 19.5c.9-3.2 3.4-5 6.5-5s5.6 1.8 6.5 5" /><path d="M15.5 5.2a3.5 3.5 0 0 1 0 6.6" /><path d="M17.5 14.8c2 .6 3.4 2.2 4 4.7" /></>,
+  external: <><path d="M14 4h6v6" /><path d="M20 4l-9 9" /><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" /></>,
+  trash: <><path d="M4.5 7h15" /><path d="M9 7V4.5h6V7" /><path d="M6.5 7l1 12.5h9l1-12.5" /></>,
+  edit: <><path d="M4 20h4L19 9l-4-4L4 16z" /><path d="M13.5 6.5l4 4" /></>,
+  alert: <><path d="M12 4l9 16H3z" /><path d="M12 10v4" /><path d="M12 17v.2" /></>,
 };
 
 export function Icon({ name, size = 20, color = 'currentColor' }) {
@@ -197,6 +209,18 @@ export function Modal({ title, onClose, children, wide = false }) {
       </div>
     </div>
   );
+}
+
+// Number tile for dashboards: label and icon on top, the value, an optional line under it; a link when `to` is set.
+export function StatTile({ icon, label, value, sub, to, tone = '' }) {
+  const body = (
+    <>
+      <span className="top"><span className="label">{label}</span>{icon && <span className={`ic-tile sm ${tone}`}><Icon name={icon} size={16} /></span>}</span>
+      <span className="v">{value}</span>
+      {sub && <small>{sub}</small>}
+    </>
+  );
+  return to ? <Link to={to} className="stat-tile">{body}</Link> : <div className="stat-tile">{body}</div>;
 }
 
 // Page header for inner pages: breadcrumbs, a small kicker, the title, a line under it, and actions.

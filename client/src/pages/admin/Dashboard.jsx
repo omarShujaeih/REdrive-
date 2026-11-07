@@ -1,32 +1,48 @@
-import { Link } from 'react-router-dom';
 import { api } from '../../api.js';
 import { PageTitle } from '../../components/Layout.jsx';
-import { Loading, useLoad } from '../../components/ui.jsx';
-import { fmtDate, money } from '../../labels.js';
+import { ErrorBox, Icon, Loading, StatTile, useLoad } from '../../components/ui.jsx';
+import { fmtDate, initial, money } from '../../labels.js';
 
 export default function AdminDashboard() {
-  const { data, loading } = useLoad(() => api('/admin/dashboard'));
+  const { data: d, loading, error } = useLoad(() => api('/admin/dashboard'));
   if (loading) return <Loading />;
-  const d = data;
+  if (error) return <ErrorBox error={error} />;
+  const tasks = d.pendingUsers + d.pendingCars;
   return (
     <>
-      <PageTitle title="نظرة عامة" sub={`${d.pendingUsers + d.pendingCars} مهام بتستنى قرارك`} />
-      <div className="grid stats" style={{ marginBottom: 20 }}>
-        <Link to="/admin/verify" className="stat" style={{ color: 'var(--ink)' }}><span className="muted small">حسابات بانتظار التوثيق</span><div className="v">{d.pendingUsers}</div></Link>
-        <Link to="/admin/cars" className="stat" style={{ color: 'var(--ink)' }}><span className="muted small">سيارات بانتظار الاعتماد</span><div className="v">{d.pendingCars}</div></Link>
-        <Link to="/admin/users" className="stat" style={{ color: 'var(--ink)' }}><span className="muted small">حسابات تقييمها أقل من 3</span><div className="v">{d.lowRated}</div></Link>
+      <PageTitle kicker="الإدارة" title="نظرة عامة" sub={tasks ? `${tasks} مهام بتستنى قرارك.` : 'ما في مهام بتستنى قرارك هلأ.'} />
+
+      <h2 style={{ fontSize: 18, color: 'var(--navy)', marginBottom: 12 }}>بتستنى قرارك</h2>
+      <div className="grid stats" style={{ marginBottom: 24 }}>
+        <StatTile icon="shield" label="حسابات بانتظار التوثيق" value={d.pendingUsers} tone={d.pendingUsers ? 'warn' : ''} to="/admin/verify" sub="راجع الوثائق ووثّق أو ارفض" />
+        <StatTile icon="car" label="سيارات بانتظار الاعتماد" value={d.pendingCars} tone={d.pendingCars ? 'warn' : ''} to="/admin/cars" sub="السيارة بتظهر بالبحث بعد اعتمادها" />
+        <StatTile icon="alert" label="حسابات تقييمها أقل من 3" value={d.lowRated} tone={d.lowRated ? 'bad' : ''} to="/admin/users" sub="راقبها، وبتقدر تحظرها" />
       </div>
-      <div className="grid stats" style={{ marginBottom: 20 }}>
-        <div className="stat"><span className="muted small">المستأجرين</span><div className="v">{d.renters}</div></div>
-        <div className="stat"><span className="muted small">الشركات</span><div className="v">{d.companies}</div></div>
-        <div className="stat"><span className="muted small">السيارات المعروضة</span><div className="v">{d.cars}</div></div>
-        <div className="stat"><span className="muted small">حجوزات جارية ومؤكدة</span><div className="v">{d.activeRentals}</div></div>
-        <div className="stat"><span className="muted small">عمولات الشهر</span><div className="v">{money(d.monthCommission)}</div></div>
+
+      <h2 style={{ fontSize: 18, color: 'var(--navy)', marginBottom: 12 }}>المنصة</h2>
+      <div className="grid stats" style={{ marginBottom: 24 }}>
+        <StatTile icon="users" label="المستأجرين" value={d.renters} />
+        <StatTile icon="building" label="الشركات" value={d.companies} />
+        <StatTile icon="car" label="السيارات المعروضة" value={d.cars} />
+        <StatTile icon="calendar" label="حجوزات جارية ومؤكدة" value={d.activeRentals} tone="good" />
+        <StatTile icon="chart" label="عمولات الشهر" value={money(d.monthCommission)} />
       </div>
-      <section className="card col">
-        <h3>آخر التقييمات المنخفضة</h3>
-        {d.recentReviews.length === 0 && <span className="muted">ما في تقييمات منخفضة.</span>}
-        {d.recentReviews.map((r) => <div key={r._id} className="small">تقييم {r.stars}★ {r.targetUser ? `لـ"${r.targetUser.name}"` : 'لسيارة'} من {r.author?.name}: "{r.comment}" · <span className="muted">{fmtDate(r.createdAt)}</span></div>)}
+
+      <section className="panel" aria-labelledby="low-title">
+        <h2 id="low-title" className="panel-title"><span className="ic-tile sm bad"><Icon name="star" size={16} /></span>آخر التقييمات المنخفضة</h2>
+        {d.recentReviews.length === 0 ? <span className="muted">ما في تقييمات منخفضة.</span> : (
+          <div className="list-rows">
+            {d.recentReviews.map((r) => (
+              <div key={r._id} className="list-row" style={{ alignItems: 'flex-start' }}>
+                <span className="avatar" aria-hidden="true">{initial(r.author?.name)}</span>
+                <div className="grow">
+                  <b>{r.author?.name} <span style={{ color: 'var(--star)' }} aria-label={`${r.stars} من 5`}>{'★'.repeat(r.stars)}</span> <span className="muted small">{r.targetUser ? `لـ ${r.targetUser.name}` : 'لسيارة'}</span></b>
+                  <small>«{r.comment}» · {fmtDate(r.createdAt)}</small>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </>
   );

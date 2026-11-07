@@ -3,9 +3,9 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../../api.js';
 import { useAuth } from '../../auth.jsx';
 import { PageTitle } from '../../components/Layout.jsx';
-import { Badge, ErrorBox, Field, Loading, Modal, StarInput, Stars, StatusBadge, useLoad } from '../../components/ui.jsx';
+import { Badge, CarImage, ErrorBox, Field, Icon, Loading, Modal, StarInput, Stars, StatusBadge, useLoad } from '../../components/ui.jsx';
 import { usePolicies } from '../../components/Policies.jsx';
-import { EXTENSION_STATUS, RENTAL_STATUS, carName, daysWord, extraDaysText, fmtDateTime, lateText, localStamp, money, timeLeft } from '../../labels.js';
+import { EXTENSION_STATUS, RENTAL_STATUS, carName, daysWord, extraDaysText, fmtDateTime, initial, lateText, localStamp, money, timeLeft } from '../../labels.js';
 
 const KIND = { extension: 'تمديد', late_fee: 'رسوم تأخير' };
 const PAY = { due: 'مستحقة على الزبون', held: 'محجوز', transferred: 'انحوّل لحسابك', refunded: 'رجع للزبون', partially_refunded: 'جزء رجع للزبون' };
@@ -41,26 +41,26 @@ export default function RentalDetail() {
     try { await api(`/rentals/${id}/${action}`, { method: 'POST', body }); setToast(msg); setConfirmCancel(false); reload(); } catch (e) { setError(e.message); }
   };
   const fee = r.total * commissionRate;
+  const net = [payment, ...extras].filter((p) => p && ['transferred', 'partially_refunded'].includes(p.status)).reduce((s, p) => s + p.transferAmount, 0) || r.total - fee;
 
   return (
     <>
-      <Link to="/company/rentals">‹ الحجوزات</Link>
-      <PageTitle title={carName(r.car)} sub={`${fmtDateTime(r.startDate)} ← ${fmtDateTime(r.endDate)} · ${daysWord(r.days)} · ${money(r.total)}`}>
-        <StatusBadge map={RENTAL_STATUS} value={r.status} /><span className="muted ltr">{r.code}</span>
+      <PageTitle back={['/company/rentals', 'الحجوزات']} title={carName(r.car)} sub={`${fmtDateTime(r.startDate)} ← ${fmtDateTime(r.endDate)} · ${daysWord(r.days)} · ${money(r.total)}`}>
+        <StatusBadge map={RENTAL_STATUS} value={r.status} /><span className="muted small ltr">{r.code}</span>
       </PageTitle>
       <ErrorBox error={error} />
-      <div className="split" style={{ marginTop: 12 }}>
-        <div className="col">
+      <div className="split" style={{ marginTop: 4 }}>
+        <div className="col" style={{ gap: 16 }}>
           {r.status === 'confirmed' && (
-            <section className="card col">
-              <h3>{canPickup ? 'الزبون جاي يستلم' : 'حجز مؤكد'}</h3>
-              <ul style={{ margin: 0, paddingInlineStart: 18 }} className="col">
-                <li>الهوية ورخصة السواقة موثّقين على Redrive. طابقهم مع الأصل.</li>
-                <li>وقّع عقد الإيجار مع الزبون عندك.</li>
-                <li>لما تأكد الاستلام، المبلغ بيتحوّل لحسابك بعد خصم عمولة المنصة.</li>
+            <section className="panel" aria-labelledby="pickup-title">
+              <h2 id="pickup-title" className="panel-title"><span className="ic-tile sm"><Icon name="key" size={16} /></span>{canPickup ? 'الزبون جاي يستلم' : 'حجز مؤكد'}</h2>
+              <ul className="check-list">
+                <li><Icon name="shield" size={18} /><span>الهوية ورخصة السواقة موثّقين على Redrive. طابقهم مع الأصل.</span></li>
+                <li><Icon name="doc" size={18} /><span>وقّع عقد الإيجار مع الزبون عندك.</span></li>
+                <li><Icon name="card" size={18} /><span>لما تأكد الاستلام، المبلغ بيتحوّل لحسابك بعد خصم عمولة المنصة.</span></li>
               </ul>
               <div className="row">
-                <button type="button" className="btn" disabled={!canPickup} onClick={() => act('pickup', null, 'تأكد الاستلام، والمبلغ انحوّل لحسابك')}>أكّد إنه الزبون استلم السيارة</button>
+                <button type="button" className="btn" disabled={!canPickup} onClick={() => act('pickup', null, 'تأكد الاستلام، والمبلغ انحوّل لحسابك')}><Icon name="check" size={18} />أكّد إنه الزبون استلم السيارة</button>
                 <button type="button" className="btn danger outline" disabled={!canNoShow} onClick={() => act('no-show', null, 'انسجّل عدم حضور')}>ما إجا (عدم حضور)</button>
                 <button type="button" className="btn ghost" onClick={() => setConfirmCancel(true)}>إلغاء الحجز</button>
               </div>
@@ -68,8 +68,11 @@ export default function RentalDetail() {
             </section>
           )}
           {r.status === 'active' && pendingExt && (
-            <section className="card col">
-              <div className="row between"><h3>طلب تمديد</h3><Badge tone="amber">{timeLeft(pendingExt.respondBy)}</Badge></div>
+            <section className="panel" aria-labelledby="ext-title">
+              <div className="panel-head">
+                <h2 id="ext-title" className="panel-title"><span className="ic-tile sm warn"><Icon name="clock" size={16} /></span>طلب تمديد</h2>
+                <span className="badge amber">{timeLeft(pendingExt.respondBy)}</span>
+              </div>
               <p>الزبون بدّه يرجّع السيارة <b>{fmtDateTime(pendingExt.requestedEnd)}</b> بدل {fmtDateTime(pendingExt.previousEnd)}: {extraDaysText(pendingExt.extraDays)} · <b>{money(pendingExt.amount)}</b> مدفوعين ومحجوزين.</p>
               <span className="muted small">إذا وافقت بيتعدّل موعد التسليم وبيتحوّل المبلغ لحسابك بعد العمولة. إذا رفضت أو ما رديت قبل الموعد، بيرجع للزبون.</span>
               {rejecting ? (
@@ -82,28 +85,28 @@ export default function RentalDetail() {
                 </>
               ) : (
                 <div className="row">
-                  <button type="button" className="btn" onClick={() => act(`extensions/${pendingExt._id}/approve`, null, 'وافقت على التمديد، والمبلغ انحوّل لحسابك')}>وافق على التمديد</button>
+                  <button type="button" className="btn" onClick={() => act(`extensions/${pendingExt._id}/approve`, null, 'وافقت على التمديد، والمبلغ انحوّل لحسابك')}><Icon name="check" size={18} />وافق على التمديد</button>
                   <button type="button" className="btn danger outline" onClick={() => setRejecting(true)}>ارفض</button>
                 </div>
               )}
             </section>
           )}
           {r.status === 'active' && (
-            <section className="card col">
-              <h3>السيارة مع الزبون</h3>
+            <section className="panel" aria-labelledby="return-title">
+              <h2 id="return-title" className="panel-title"><span className="ic-tile sm good"><Icon name="car" size={16} /></span>السيارة مع الزبون</h2>
               <p>موعد التسليم {fmtDateTime(r.endDate)}.{late?.lateMinutes > 0 ? ` الزبون متأخر ${lateText(late.lateMinutes)}.` : ''}</p>
               <Field label="وقت الإرجاع الفعلي" hint={`في ساعة سماح بعد الموعد، وبعدها كل 24 ساعة تأخير أو جزء منها بتنحسب يوم (${money(r.dailyPrice)}).`}>
-                <input className="input" type="datetime-local" value={returnedAt} max={localStamp(Date.now() + 5 * 60000)} onChange={(e) => setReturnedAt(e.target.value)} />
+                <input className="input" type="datetime-local" value={returnedAt} max={localStamp(Date.now() + 5 * 60000)} onChange={(e) => setReturnedAt(e.target.value)} style={{ maxWidth: 320 }} />
               </Field>
               <div className={`alert ${previewDays ? 'amber' : 'green'} small`}>
                 {previewDays ? `تأخير ${daysWord(previewDays)}: بتنسجّل رسوم ${money(previewDays * r.dailyPrice)} على الزبون، وبيدفعها أونلاين.` : 'بالوقت أو ضمن ساعة السماح: ما في رسوم تأخير.'}
               </div>
-              <button type="button" className="btn" onClick={() => act('return', { returnedAt: new Date(returnedAt) }, previewDays ? 'تأكد الإرجاع، وانسجّلت رسوم التأخير على الزبون' : 'تأكد الإرجاع')}>أكّد إرجاع السيارة</button>
+              <button type="button" className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => act('return', { returnedAt: new Date(returnedAt) }, previewDays ? 'تأكد الإرجاع، وانسجّلت رسوم التأخير على الزبون' : 'تأكد الإرجاع')}><Icon name="check" size={18} />أكّد إرجاع السيارة</button>
             </section>
           )}
           {history.length > 0 && (
-            <section className="card col">
-              <h3>طلبات التمديد</h3>
+            <section className="panel" aria-labelledby="hist-title">
+              <h2 id="hist-title" className="panel-title"><span className="ic-tile sm soft"><Icon name="clock" size={16} /></span>طلبات التمديد</h2>
               {history.map((e) => (
                 <div key={e._id} className="row between small">
                   <span>لحد {fmtDateTime(e.requestedEnd)} · {daysWord(e.extraDays)} · {money(e.amount)}{e.reason ? ` · ${e.reason}` : ''}</span>
@@ -113,40 +116,51 @@ export default function RentalDetail() {
             </section>
           )}
           {r.status === 'completed' && r.lateFee > 0 && (
-            <section className="card col">
-              <h3>رسوم التأخير</h3>
+            <section className="panel" aria-labelledby="late-title">
+              <h2 id="late-title" className="panel-title"><span className="ic-tile sm warn"><Icon name="alert" size={16} /></span>رسوم التأخير</h2>
               <p>رجعت السيارة {fmtDateTime(r.returnedAt)}، والموعد كان {fmtDateTime(r.endDate)}: {daysWord(r.lateDays)} · {money(r.lateFee)}.</p>
               <span className="muted small">{lateFeePay?.status === 'due' ? 'بستنى الزبون يدفعها أونلاين.' : `انْدفعت، وانحوّل ${money(lateFeePay?.transferAmount || 0)} لحسابك بعد العمولة.`}</span>
             </section>
           )}
           {r.status === 'completed' && (
-            <section className="card col">
-              <h3>كيف كان الزبون؟</h3>
+            <section className="panel" aria-labelledby="rate-title">
+              <h2 id="rate-title" className="panel-title"><span className="ic-tile sm"><Icon name="star" size={16} /></span>كيف كان الزبون؟</h2>
               {r.companyReviewed ? <div className="alert green">قيّمت الزبون، والتقييم انضاف لملفه.</div> : (
                 <>
                   <StarInput value={stars} onChange={setStars} label="تقييم الزبون" />
                   <Field label="تعليقك (بيشوفه باقي الشركات بملف الزبون)"><textarea className="input" value={comment} onChange={(e) => setComment(e.target.value)} /></Field>
-                  <button type="button" className="btn" disabled={!stars} onClick={() => act('review', { stars, comment }, 'انضاف التقييم لملف الزبون')}>أرسل التقييم</button>
+                  <button type="button" className="btn" style={{ alignSelf: 'flex-start' }} disabled={!stars} onClick={() => act('review', { stars, comment }, 'انضاف التقييم لملف الزبون')}>أرسل التقييم</button>
                 </>
               )}
             </section>
           )}
           {['cancelled', 'rejected', 'no_show'].includes(r.status) && (
-            <section className="card"><b>{RENTAL_STATUS[r.status].label}</b>{r.cancelledBy && <span className="muted"> · {r.cancelledBy === 'renter' ? 'لغاه المستأجر' : r.cancelledBy === 'company' ? 'لغيته إنت' : 'تلقائياً'}</span>}</section>
+            <section className="panel">
+              <h2 className="panel-title"><span className="ic-tile sm bad"><Icon name="close" size={16} /></span>{RENTAL_STATUS[r.status].label}</h2>
+              {r.cancelledBy && <span className="muted">{r.cancelledBy === 'renter' ? 'لغاه المستأجر' : r.cancelledBy === 'company' ? 'لغيته إنت' : 'تلقائياً'}</span>}
+            </section>
           )}
         </div>
-        <aside className="col">
-          <section className="card col">
-            <h3>الزبون</h3>
-            <div className="row"><span className="avatar">{r.renter.name[0]}</span><div className="col" style={{ gap: 0 }}><b>{r.renter.name}</b><span className="muted small"><Stars value={r.renter.ratingAvg} /> · {r.renter.ratingCount} تقييم</span></div></div>
-            {['confirmed', 'active'].includes(r.status) && <span className="ltr" style={{ textAlign: 'end' }}>{r.renter.phone}</span>}
-            <Link className="btn secondary sm" to={`/company/renters/${r.renter._id}`}>ملف الزبون</Link>
+
+        <aside className="col stick" style={{ gap: 16 }}>
+          <section className="panel" aria-labelledby="car-title">
+            <div className="thumb" style={{ borderRadius: 14 }}><CarImage car={r.car} alt="" /></div>
+            <h2 id="car-title" style={{ fontSize: 'var(--fs-4)' }}>{carName(r.car)}</h2>
           </section>
-          <section className="card col">
-            <h3>المبلغ</h3>
-            <div className="row between"><span>{money(r.dailyPrice)} × {daysWord(r.days)}</span><span>{money(r.total)}</span></div>
-            <div className="row between"><span>عمولة المنصة (10%)</span><span>−{money(fee)}</span></div>
-            <div className="row between bold"><span>صافي إلك</span><span>{money([payment, ...extras].filter((p) => p && ['transferred', 'partially_refunded'].includes(p.status)).reduce((s, p) => s + p.transferAmount, 0) || r.total - fee)}</span></div>
+          <section className="panel" aria-labelledby="renter-title">
+            <h2 id="renter-title" style={{ fontSize: 'var(--fs-4)' }}>الزبون</h2>
+            <div className="row" style={{ gap: 12 }}>
+              <span className="avatar" aria-hidden="true">{initial(r.renter.name)}</span>
+              <div className="col" style={{ gap: 0 }}><b>{r.renter.name}</b><span className="muted small"><Stars value={r.renter.ratingAvg} /> · {r.renter.ratingCount} تقييم</span></div>
+            </div>
+            {['confirmed', 'active'].includes(r.status) && <span className="kv"><span>الجوال</span><span className="ltr">{r.renter.phone}</span></span>}
+            <Link className="btn secondary sm" to={`/company/renters/${r.renter._id}`}><Icon name="user" size={16} />ملف الزبون</Link>
+          </section>
+          <section className="panel" aria-labelledby="money-title">
+            <h2 id="money-title" style={{ fontSize: 'var(--fs-4)' }}>المبلغ</h2>
+            <div className="sum-line"><span>{money(r.dailyPrice)} × {daysWord(r.days)}</span><span>{money(r.total)}</span></div>
+            <div className="sum-line"><span>عمولة المنصة (10%)</span><span>−{money(fee)}</span></div>
+            <div className="sum-total"><span>صافي إلك</span><span>{money(net)}</span></div>
             <span className="muted small">{payment?.status === 'held' ? 'المبلغ محجوز، وبيتحوّل لحسابك لما تأكد الاستلام.' : payment?.transferAmount ? `انحوّل ${money(payment.transferAmount)} لحسابك.` : 'ما في تحويل على هالحجز.'}</span>
             {extras.map((p) => (
               <div key={p._id} className="row between small">

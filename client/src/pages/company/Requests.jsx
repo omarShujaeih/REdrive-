@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { api } from '../../api.js';
 import { useAuth } from '../../auth.jsx';
 import { PageTitle } from '../../components/Layout.jsx';
-import { Badge, Empty, ErrorBox, Field, Loading, Stars, useLoad } from '../../components/ui.jsx';
-import { carName, daysWord, fmtDateTime, money, timeLeft } from '../../labels.js';
+import { Empty, ErrorBox, Field, Icon, Loading, Stars, useLoad } from '../../components/ui.jsx';
+import { carName, daysWord, fmtDateTime, initial, money, timeLeft } from '../../labels.js';
 
 export default function Requests() {
   const { setToast } = useAuth();
@@ -28,37 +28,50 @@ export default function Requests() {
 
   return (
     <>
-      <PageTitle title="طلبات الإيجار" sub="شوف ملف كل زبون قبل ما تقرر. رد خلال 12 ساعة، وإلا الطلب بينرفض تلقائياً وبيرجع المبلغ للزبون." />
+      <PageTitle kicker="الطلبات" title="طلبات الإيجار" sub="شوف ملف كل زبون قبل ما تقرر. رد خلال 12 ساعة، وإلا الطلب بينرفض تلقائياً وبيرجع المبلغ للزبون." />
       <ErrorBox error={error} />
+
       {extensionRequests.length > 0 && (
-        <section className="col" style={{ marginBottom: 24 }}>
-          <h2>طلبات تمديد</h2>
+        <section className="col" style={{ gap: 12, marginBottom: 24 }} aria-labelledby="ext-title">
+          <h2 id="ext-title" className="panel-title" style={{ fontSize: 18, color: 'var(--navy)' }}><span className="ic-tile sm warn"><Icon name="clock" size={16} /></span>طلبات تمديد</h2>
           {extensionRequests.map(({ rental: r, ext }) => (
-            <div key={ext._id} className="card row between">
-              <div className="col" style={{ gap: 2 }}>
-                <b>{r.renter.name} · {carName(r.car)}</b>
-                <span className="small">لحد {fmtDateTime(ext.requestedEnd)} بدل {fmtDateTime(ext.previousEnd)} · {daysWord(ext.extraDays)} · {money(ext.amount)} مدفوعين</span>
+            <div key={ext._id} className="panel">
+              <div className="panel-head">
+                <div className="row" style={{ gap: 12 }}>
+                  <span className="avatar" aria-hidden="true">{initial(r.renter.name)}</span>
+                  <div className="col" style={{ gap: 2 }}>
+                    <b>{r.renter.name} · {carName(r.car)}</b>
+                    <span className="small muted">لحد {fmtDateTime(ext.requestedEnd)} بدل {fmtDateTime(ext.previousEnd)} · {daysWord(ext.extraDays)} · {money(ext.amount)} مدفوعين</span>
+                  </div>
+                </div>
+                <div className="row" style={{ gap: 8 }}><span className="badge amber">{timeLeft(ext.respondBy)}</span><Link className="btn sm" to={`/company/rentals/${r._id}`}>رد على الطلب</Link></div>
               </div>
-              <div className="row"><Badge tone="amber">{timeLeft(ext.respondBy)}</Badge><Link className="btn sm" to={`/company/rentals/${r._id}`}>رد على الطلب</Link></div>
             </div>
           ))}
         </section>
       )}
-      {loading ? <Loading /> : list.length === 0 ? <Empty title="ما في طلبات جديدة" text="أي طلب جديد بيوصلك إشعار فيه." /> : (
-        <div className="col">
+
+      {loading ? <Loading /> : list.length === 0 ? (
+        <Empty icon="inbox" title="ما في طلبات جديدة" text="أي طلب جديد بيوصلك إشعار فيه." />
+      ) : (
+        <div className="col" style={{ gap: 14 }}>
           {list.map((r) => (
-            <div key={r._id} className="card col">
-              <div className="row between">
-                <div className="row">
-                  <span className="avatar">{r.renter.name[0]}</span>
+            <article key={r._id} className="panel" aria-label={`طلب ${r.renter.name}`}>
+              <div className="panel-head">
+                <div className="row" style={{ gap: 12 }}>
+                  <span className="avatar" aria-hidden="true">{initial(r.renter.name)}</span>
                   <div className="col" style={{ gap: 0 }}>
-                    <b>{r.renter.name} <Badge tone="green">حساب موثّق</Badge></b>
+                    <b>{r.renter.name} <span className="verified"><Icon name="shield" size={14} />حساب موثّق</span></b>
                     <span className="muted small"><Stars value={r.renter.ratingAvg} /> من الشركات · {r.renter.ratingCount} تقييم</span>
                   </div>
                 </div>
-                <div className="col" style={{ gap: 0, alignItems: 'flex-end' }}><b style={{ fontSize: 20 }}>{money(r.total)}</b><span className="muted small ltr">{r.code}</span></div>
+                <div className="col" style={{ gap: 0, alignItems: 'flex-end' }}><b style={{ fontSize: 22, color: 'var(--navy)' }}>{money(r.total)}</b><span className="muted small ltr">{r.code}</span></div>
               </div>
-              <div className="row small"><span><b>السيارة:</b> {carName(r.car)}</span><span><b>المدة:</b> {fmtDateTime(r.startDate)} ← {fmtDateTime(r.endDate)} ({daysWord(r.days)})</span><Badge tone="amber">{timeLeft(r.respondBy)}</Badge></div>
+              <div className="rr-meta">
+                <span><Icon name="car" size={15} />{carName(r.car)}</span>
+                <span><Icon name="calendar" size={15} />{fmtDateTime(r.startDate)} ← {fmtDateTime(r.endDate)} ({daysWord(r.days)})</span>
+                <span className="badge amber">{timeLeft(r.respondBy)}</span>
+              </div>
               {overlaps(r) && <div className="alert amber small">تواريخ هالطلب بتتقاطع مع طلب ثاني على نفس السيارة. إذا قبلت واحد، التاني بينرفض تلقائياً.</div>}
               {rejecting === r._id ? (
                 <div className="col">
@@ -67,12 +80,12 @@ export default function Requests() {
                 </div>
               ) : (
                 <div className="row">
-                  <button type="button" className="btn" onClick={() => act(r, 'accept')}>اقبل الطلب</button>
+                  <button type="button" className="btn" onClick={() => act(r, 'accept')}><Icon name="check" size={18} />اقبل الطلب</button>
                   <button type="button" className="btn danger outline" onClick={() => setRejecting(r._id)}>ارفض</button>
-                  <Link className="btn ghost" to={`/company/renters/${r.renter._id}`}>ملف الزبون</Link>
+                  <Link className="btn ghost" to={`/company/renters/${r.renter._id}`}><Icon name="user" size={18} />ملف الزبون</Link>
                 </div>
               )}
-            </div>
+            </article>
           ))}
         </div>
       )}
